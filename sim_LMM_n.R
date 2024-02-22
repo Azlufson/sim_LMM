@@ -162,13 +162,17 @@ p_TasZ.ML <- data_TasZ.ML_long %>%
 #anova aus lmertest
 
 #Funktion für Datengeneration und F-Test
-test_approx.fixed <- function(n.subj = 6, n.obs = 10, beta_obs = 0, REML = TRUE, ddf = "Satterthwaite") {
-  data <- sim_data.n_int(n.subj = n.subj, n.obs = n.obs, b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1)
-  return(anova(lmer(y ~ obs + cond + (1|subj), data = data, REML = REML), ddf = ddf)$`Pr(>F)`[1])
+test_approx.fixed <- function(data, model, REML = TRUE, ddf = "Satterthwaite") {
+  return(anova(lmer(model, data = data, REML = REML), ddf = ddf)$`Pr(>F)`[1])
 }
 
+model <- y ~ obs + cond + (1|subj)
+beta_obs <- 0
+
 #Sattherthwaire, REML
-data_SW.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(n.subj = x[1], n.obs = x[2], REML = TRUE, ddf = "Satterthwaite")), future.seed = TRUE))
+ddf <- "Satterthwaite"
+REML <- TRUE
+data_SW.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), model, REML = REML, ddf = ddf)), future.seed = TRUE))
 data_SW.REML_long <- cbind(grid, data_SW.REML)
 data_SW.REML_long <- gather(data_SW.REML_long, sim, p.SW.REML, (ncol(grid)+1):ncol(data_SW.REML_long))
 
@@ -189,7 +193,9 @@ p_SW.REML <- data_SW.REML_long %>%
          method = 3)
 
 #Kenward-Roger, REML
-data_KR.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(n.subj = x[1], n.obs = x[2], REML = TRUE, ddf = "Kenward-Roger")), future.seed = TRUE))
+ddf <- "Kenward-Roger"
+REML <- TRUE
+data_KR.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), model, REML = TRUE, ddf = "Satterthwaite")), future.seed = TRUE))
 data_KR.REML_long <- cbind(grid, data_KR.REML)
 data_KR.REML_long <- gather(data_KR.REML_long, sim, p.KR.REML, (ncol(grid)+1):ncol(data_KR.REML_long))
 
@@ -210,7 +216,9 @@ p_KR.REML <- data_KR.REML_long %>%
          method = 4)
 
 #Sattherthwaire, ML
-data_SW.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(n.subj = x[1], n.obs = x[2], REML = FALSE, ddf = "Satterthwaite")), future.seed = TRUE))
+ddf <- "Satterthwaite"
+REML <- FALSE
+data_SW.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), model, REML = TRUE, ddf = "Satterthwaite")), future.seed = TRUE))
 data_SW.ML_long <- cbind(grid, data_SW.ML)
 data_SW.ML_long <- gather(data_SW.ML_long, sim, p.SW.ML, (ncol(grid)+1):ncol(data_SW.ML_long))
 
