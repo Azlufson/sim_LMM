@@ -9,6 +9,7 @@
 
 ##TODO: KR für REML?
 ##      alle Funktionen umschrieben, damit daten und modell angegeben werden kann
+##      grafik änder auf 5 methoden
 
 library(future.apply)
 library(parallel)
@@ -16,6 +17,7 @@ library(tidyverse)
 library(lme4)
 library(lmerTest)
 library(pbkrtest)
+library(afex)
 
 nsim <- 10000
 
@@ -305,7 +307,47 @@ data_p %>%
   ylim(0, .12)
 
 
-#parametric bootstrap
+###parametric bootstrap (nur ML)
+
+t <- mixed(model, data = sim_data.n_int(n.subj = 4, n.obs = 4, b0 = 10, beta_obs = 0, beta_cond = 10, sd.int_subj = 10, sd_eps = 1), method = "PB")
+t$anova_table$`Pr(>PB)`[1]
+
+#Funktion zur Ausgabe des p-Wertes des fixed effects via parametric bootstrap
+#mixed auf afex (nutzt pbmodcomp)
+#nsim bestimmt anzahl an bootstrap-simulationen von pbmodcomp
+#cl erlaubt multicore nutzung (via package parallel)
+test_PB.fixed <- function(mode, data, nsim.pb = 1000, cl = NULL) {
+  return(suppressMessages(mixed(model, data = data, method = "PB", progress = FALSE, cl = cl, args_test = list(nsim = nsim.pb, cl = cl))$anova_table$`Pr(>PB)`[1]))
+}
+#suppressMessages: "mixed" will throw a message if numerical variables are not centered on 0, as main effects (of other variables then the numeric one) can be hard to interpret if numerical variables appear in interactions. See Dalal & Zickar (2012).
+
+nsim <- 1000 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim = 1000)
+nsim.pb <- 1000
+model <- y ~ obs + cond + (1|subj)
+beta_obs <- 0
+
+#Cluster festlegen (future_apply funktioniert nicht)
+(nc <- detectCores()) # number of cores
+cl <- makeCluster(rep("localhost", nc)) # make cluster
+
+data_PB <- t(apply(grid, 1, function(x) replicate(nsim, test_PB.fixed(model, data = sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 10, sd.int_subj = 10, sd_eps = 1), nsim.pb = nsim.pb, cl = cl))))
+data_PB_long <- cbind(grid, data_PB)
+data_PB_long <- gather(data_PB_long, sim, p.PB, (ncol(grid)+1):ncol(data_PB_long))
+
+data_PB_long %>% 
+  group_by(n.subj, n.obs) %>% 
+  summarize(prop_PB = mean(p.PB <= .05))
+
+p_PB <- data_PB_long %>% 
+  group_by(n.subj, n.obs) %>% 
+  summarize(k = sum(p.PB < .05) + 1.96^2/2,
+            n = n() + 1.96^2,
+            p = k/n,
+            p_l = p - 1.96 * sqrt(p*(1-p)/n),
+            p_u = p + 1.96 * sqrt(p*(1-p)/n)) %>% 
+  select(n.obs, n.subj, p, p_l, p_u) %>% 
+  mutate(REML = 0,
+         method = 5)
 
 ##Stärke des Effekts
 
