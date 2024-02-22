@@ -7,7 +7,7 @@
 #                 MCMC (Baayen et al., 2008)
 #                 t as z
 
-##TODO: grafik für vergleich von ml und reml, KR für REML?
+##TODO: KR für REML?
 ##      alle Funktionen umschrieben, damit daten und modell angegeben werden kann
 
 library(future.apply)
@@ -41,8 +41,7 @@ sim_data.n_int <- function(n.subj, n.obs, b0, beta_obs, beta_cond, sd.int_subj, 
 #   return(pchisq(as.numeric(2 * (logLik(full) - logLik(null))), 1, lower = FALSE))
 # }
 
-test_lrtstat <- function(m.full, m.null, n.subj = 6, n.obs = 10, beta_obs = 0, REML = TRUE) {
-  data <- sim_data.n_int(n.subj = n.subj, n.obs = n.obs, b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1)
+test_lrtstat <- function(data, m.full, m.null, REML = TRUE) {
   full <- lmer(m.full, data = data, REML = REML)
   null <- lmer(m.null, data = data, REML = REML)
   return(pchisq(as.numeric(2 * (logLik(full) - logLik(null))), 1, lower = FALSE))
@@ -53,6 +52,7 @@ m.full <- y ~ obs + cond + (1|subj)
 m.null <- y ~ cond + (1|subj)
 
 #Parameter für Simulationen
+beta_obs <- 0
 n.subj <- c(4, 6, 10, 16)
 n.obs <- c(4, 6, 10, 16)
 grid <- expand.grid(n.subj, n.obs)
@@ -61,7 +61,7 @@ colnames(grid) <- c("n.subj", "n.obs")
 plan("multisession", workers = detectCores()-1)
 
 #REML (nicht empfohlen)
-data_LRT.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_lrtstat(m.full, m.null, n.subj = x[1], n.obs = x[2])), future.seed = TRUE))
+data_LRT.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_lrtstat(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), m.full, m.null)), future.seed = TRUE))
 data_LRT.REML_long <- cbind(grid, data_LRT.REML)
 data_LRT.REML_long <- gather(data_LRT.REML_long, sim, p.LRT.REML, (ncol(grid)+1):ncol(data_LRT.REML_long))
 
@@ -87,7 +87,7 @@ p_LRT.REML <- data_LRT.REML_long %>%
          method = 1)
 
 #ML
-data_LRT.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_lrtstat(m.full, m.null, n.subj = x[1], n.obs = x[2], REML = FALSE)), future.seed = TRUE))
+data_LRT.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_lrtstat(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), m.full, m.null, REML = FALSE)), future.seed = TRUE))
 data_LRT.ML_long <- cbind(grid, data_LRT.ML)
 data_LRT.ML_long <- gather(data_LRT.ML_long, sim, p.LRT.ML, (ncol(grid)+1):ncol(data_LRT.ML_long))
 
