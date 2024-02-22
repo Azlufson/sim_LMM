@@ -111,12 +111,14 @@ p_LRT.ML <- data_LRT.ML_long %>%
 
 ###t-as-z
 
-test_TasZ.fixed <- function(n.subj = 6, n.obs = 10, beta_obs = 0, REML = TRUE) {
-  data <- sim_data.n_int(n.subj = n.subj, n.obs = n.obs, b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1)
-  return(summary(lmer(y ~ obs + cond + (1|subj), data = data, REML = REML))$coefficients[2,4])
+test_TasZ.fixed <- function(data, m.full, REML = TRUE) {
+  return(summary(lmer(model, data = data, REML = REML))$coefficients[2,4])
 }
 
-data_TasZ.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_TasZ.fixed(n.subj = x[1], n.obs = x[2])), future.seed = TRUE))
+model <- y ~ obs + cond + (1|subj)
+beta_obs <- 0
+
+data_TasZ.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_TasZ.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), model)), future.seed = TRUE))
 data_TasZ.REML_long <- cbind(grid, data_TasZ.REML)
 data_TasZ.REML_long <- gather(data_TasZ.REML_long, sim, p.TasZ.REML, (ncol(grid)+1):ncol(data_TasZ.REML_long))
 
@@ -136,7 +138,7 @@ p_TasZ.REML <- data_TasZ.REML_long %>%
   mutate(REML = 1,
          method = 2)
 
-data_TasZ.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_TasZ.fixed(n.subj = x[1], n.obs = x[2], REML = FALSE)), future.seed = TRUE))
+data_TasZ.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_TasZ.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), model, REML = FALSE)), future.seed = TRUE))
 data_TasZ.ML_long <- cbind(grid, data_TasZ.ML)
 data_TasZ.ML_long <- gather(data_TasZ.ML_long, sim, p.TasZ.ML, (ncol(grid)+1):ncol(data_TasZ.ML_long))
 
@@ -158,11 +160,6 @@ p_TasZ.ML <- data_TasZ.ML_long %>%
 
 ###KR vs SW
 #anova aus lmertest
-
-m <- lmer(y ~ obs + cond + (1|subj), data = data)
-anova(m, ddf = "Satterthwaite")
-a <- anova(m, ddf = "Kenward-Roger")
-a$`Pr(>F)`[1]
 
 #Funktion für Datengeneration und F-Test
 test_approx.fixed <- function(n.subj = 6, n.obs = 10, beta_obs = 0, REML = TRUE, ddf = "Satterthwaite") {
