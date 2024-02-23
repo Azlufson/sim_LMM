@@ -17,7 +17,6 @@
 
 ##TODO: KR für REML?, PB für REML?
 ##      funktionen aus anderem skript importieren?
-##      implement MCMC
 ##      n.subj, n.obs für ungerade zahlen
 
 library(future.apply)
