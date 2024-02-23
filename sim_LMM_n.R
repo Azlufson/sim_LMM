@@ -7,13 +7,18 @@
 #                 MCMC (Baayen et al., 2008)
 #                 t as z
 
+#mcmc nicht ehr unterstützt von lme4
+#library(languageR)
+#lmm <- lmer(model, sim_data.n_int())
+#pvals.fnc(lmm)
+
 ####Stichprobengröße
-#einfaches Modell nur mit random intercept
-# y = b0 + b1*obs + b2*cond + (1|subj) + epsilon
+
 
 ##TODO: KR für REML?, PB für REML?
 ##      funktionen aus anderem skript importieren?
 ##      implement MCMC
+##      n.subj, n.obs für ungerade zahlen
 
 library(future.apply)
 library(parallel)
@@ -22,8 +27,11 @@ library(lme4)
 library(lmerTest)
 library(pbkrtest)
 library(afex)
-library(languageR)
 
+##Datengeneration
+#einfaches Modell nur mit random intercept
+# y = b0 + b1*obs + b2*cond + (1|subj) + epsilon
+#n.subj und n.obs müssen gerade sein
 sim_data.n_int <- function(n.subj = 10, n.obs = 6, b0 = 10, beta_obs = 0, beta_cond = 5, sd.int_subj = 6, sd_eps = 2) {
   subj <- rep(1:n.subj, each = n.obs)
   obs <- rep(rep(c(0,1), each = n.obs/2), n.subj)
