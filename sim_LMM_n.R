@@ -93,7 +93,7 @@ nsim.pb <- 500
 
 ###LRT
 ##REML (nicht empfohlen)
-data_LRT.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_lrtstat(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), m.full, m.null)), future.seed = TRUE))
+data_LRT.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_lrtstat(sim_data.n_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), m.full, m.null)), future.seed = TRUE))
 data_LRT.REML_long <- cbind(grid, data_LRT.REML)
 data_LRT.REML_long <- gather(data_LRT.REML_long, sim, p.LRT.REML, (ncol(grid)+1):ncol(data_LRT.REML_long))
 
@@ -114,7 +114,7 @@ p_LRT.REML <- data_LRT.REML_long %>%
          method = 1)
 
 ##ML
-data_LRT.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_lrtstat(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), m.full, m.null, REML = FALSE)), future.seed = TRUE))
+data_LRT.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_lrtstat(sim_data.n_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), m.full, m.null, REML = FALSE)), future.seed = TRUE))
 data_LRT.ML_long <- cbind(grid, data_LRT.ML)
 data_LRT.ML_long <- gather(data_LRT.ML_long, sim, p.LRT.ML, (ncol(grid)+1):ncol(data_LRT.ML_long))
 
@@ -135,7 +135,7 @@ p_LRT.ML <- data_LRT.ML_long %>%
 
 ###t-as-z
 ##REML
-data_TasZ.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_TasZ.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), model)), future.seed = TRUE))
+data_TasZ.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_TasZ.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), model)), future.seed = TRUE))
 data_TasZ.REML_long <- cbind(grid, data_TasZ.REML)
 data_TasZ.REML_long <- gather(data_TasZ.REML_long, sim, p.TasZ.REML, (ncol(grid)+1):ncol(data_TasZ.REML_long))
 
@@ -155,7 +155,7 @@ p_TasZ.REML <- data_TasZ.REML_long %>%
          method = 2)
 
 ##ML
-data_TasZ.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_TasZ.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), model, REML = FALSE)), future.seed = TRUE))
+data_TasZ.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_TasZ.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), model, REML = FALSE)), future.seed = TRUE))
 data_TasZ.ML_long <- cbind(grid, data_TasZ.ML)
 data_TasZ.ML_long <- gather(data_TasZ.ML_long, sim, p.TasZ.ML, (ncol(grid)+1):ncol(data_TasZ.ML_long))
 
@@ -180,7 +180,7 @@ p_TasZ.ML <- data_TasZ.ML_long %>%
 ##Sattherthwaire, REML
 ddf <- "Satterthwaite"
 REML <- TRUE
-data_SW.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), model, REML = REML, ddf = ddf)), future.seed = TRUE))
+data_SW.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), model, REML = REML, ddf = ddf)), future.seed = TRUE))
 data_SW.REML_long <- cbind(grid, data_SW.REML)
 data_SW.REML_long <- gather(data_SW.REML_long, sim, p.SW.REML, (ncol(grid)+1):ncol(data_SW.REML_long))
 
@@ -202,7 +202,7 @@ p_SW.REML <- data_SW.REML_long %>%
 ##Kenward-Roger, REML
 ddf <- "Kenward-Roger"
 REML <- TRUE
-data_KR.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), model, REML = TRUE, ddf = "Satterthwaite")), future.seed = TRUE))
+data_KR.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), model, REML = TRUE, ddf = "Satterthwaite")), future.seed = TRUE))
 data_KR.REML_long <- cbind(grid, data_KR.REML)
 data_KR.REML_long <- gather(data_KR.REML_long, sim, p.KR.REML, (ncol(grid)+1):ncol(data_KR.REML_long))
 
@@ -224,7 +224,7 @@ p_KR.REML <- data_KR.REML_long %>%
 ##Sattherthwaire, ML
 ddf <- "Satterthwaite"
 REML <- FALSE
-data_SW.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), model, REML = TRUE, ddf = "Satterthwaite")), future.seed = TRUE))
+data_SW.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), model, REML = TRUE, ddf = "Satterthwaite")), future.seed = TRUE))
 data_SW.ML_long <- cbind(grid, data_SW.ML)
 data_SW.ML_long <- gather(data_SW.ML_long, sim, p.SW.ML, (ncol(grid)+1):ncol(data_SW.ML_long))
 
@@ -252,7 +252,7 @@ p_SW.ML <- data_SW.ML_long %>%
 (nc <- detectCores()) # number of cores
 cl <- makeCluster(rep("localhost", nc)) # make cluster
 
-data_PB <- t(apply(grid, 1, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 10, sd.int_subj = 10, sd_eps = 1), nsim.pb = nsim.pb, cl = cl))))
+data_PB <- t(apply(grid, 1, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = sim_data.n_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), nsim.pb = nsim.pb, cl = cl))))
 data_PB_long <- cbind(grid, data_PB)
 data_PB_long <- gather(data_PB_long, sim, p.PB, (ncol(grid)+1):ncol(data_PB_long))
 
