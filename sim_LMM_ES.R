@@ -12,12 +12,13 @@
 #lmm <- lmer(model, sim_data.n_int())
 #pvals.fnc(lmm)
 
-####Effektstärke
+####Effektstärke (power?)
 
 
 ##TODO: KR für REML?, PB für REML?
 ##      funktionen aus anderem skript importieren?
 ##      ES für ungerade zahlen
+##      future_sapply vs future_replicate testen
 
 library(future.apply)
 library(parallel)
