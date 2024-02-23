@@ -7,7 +7,7 @@
 #                 MCMC (Baayen et al., 2008)
 #                 t as z
 
-#mcmc nicht ehr unterstützt von lme4
+#mcmc nicht mehr unterstützt von lme4
 #library(languageR)
 #lmm <- lmer(model, sim_data.n_int())
 #pvals.fnc(lmm)
@@ -260,15 +260,15 @@ p_SW.ML <- data_SW.ML_long %>%
 (nc <- detectCores()) # number of cores
 cl <- makeCluster(rep("localhost", nc)) # make cluster
 
-data_PB <- t(apply(grid, 1, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = sim_data.n_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), nsim.pb = nsim.pb, cl = cl))))
-data_PB_long <- cbind(grid, data_PB)
-data_PB_long <- gather(data_PB_long, sim, p.PB, (ncol(grid)+1):ncol(data_PB_long))
+data_alpha.nB <- t(apply(grid, 1, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = sim_data.n_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), nsim.pb = nsim.pb, cl = cl))))
+data_alpha.nB_long <- cbind(grid, data_alpha.nB)
+data_alpha.nB_long <- gather(data_alpha.nB_long, sim, p.PB, (ncol(grid)+1):ncol(data_alpha.nB_long))
 
-data_PB_long %>% 
+data_alpha.nB_long %>% 
   group_by(n.subj, n.obs) %>% 
   summarize(prop_PB = mean(p.PB <= .05))
 
-p_PB <- data_PB_long %>% 
+p_PB <- data_alpha.nB_long %>% 
   group_by(n.subj, n.obs) %>% 
   summarize(k = sum(p.PB < .05) + 1.96^2/2,
             n = n() + 1.96^2,
@@ -280,14 +280,14 @@ p_PB <- data_PB_long %>%
          method = 5)
 
 ### Grafiken der Ergebnisse
-data_p <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML, p_PB)
-data_p$n.obs <- as.factor(data_p$n.obs)
-data_p$n.subj <- as.factor(data_p$n.subj)
-data_p$REML <- factor(data_p$REML, labels = c("ML", "REML"))
-data_p$method <- factor(data_p$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger", "Parametric Bootstrap"))
+data_alpha.n <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML, p_PB)
+data_alpha.n$n.obs <- as.factor(data_alpha.n$n.obs)
+data_alpha.n$n.subj <- as.factor(data_alpha.n$n.subj)
+data_alpha.n$REML <- factor(data_alpha.n$REML, labels = c("ML", "REML"))
+data_alpha.n$method <- factor(data_alpha.n$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger", "Parametric Bootstrap"))
 
 #alle Methoden
-ggplot(data_p, aes(x = as.factor(n.obs), y = p, col = REML, shape = method)) + 
+ggplot(data_alpha.n, aes(x = as.factor(n.obs), y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
@@ -295,7 +295,7 @@ ggplot(data_p, aes(x = as.factor(n.obs), y = p, col = REML, shape = method)) +
   ylim(0, .12)
 
 #nur SW und KR
-data_p %>% 
+data_alpha.n %>% 
   filter(method %in% c("Satterthwaite", "Kenward-Roger")) %>% 
   ggplot(aes(x = as.factor(n.obs), y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
@@ -305,7 +305,7 @@ data_p %>%
   ylim(0, .1)
 
 #nur SW
-data_p %>% 
+data_alpha.n %>% 
   filter(method %in% c("Satterthwaite")) %>% 
   ggplot(aes(x = as.factor(n.obs), y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
@@ -315,7 +315,7 @@ data_p %>%
   ylim(0, .1)
 
 #nur ML
-data_p %>% 
+data_alpha.n %>% 
   filter(REML == "ML") %>% 
   ggplot(aes(x = as.factor(n.obs), y = p, col = method)) + 
   geom_point(position = position_dodge(.6)) + 
@@ -325,7 +325,7 @@ data_p %>%
   ylim(0, .12)
 
 #nur REML
-data_p %>% 
+data_alpha.n %>% 
   filter(REML == "REML") %>% 
   ggplot(aes(x = as.factor(n.obs), y = p, col = method)) + 
   geom_point(position = position_dodge(.6)) + 
@@ -335,7 +335,7 @@ data_p %>%
   ylim(0, .1)
 
 #nur t as z
-data_p %>% 
+data_alpha.n %>% 
   filter(method == "t-as-z") %>% 
   ggplot(aes(x = as.factor(n.obs), y = p, col = REML)) + 
   geom_point(position = position_dodge(.6)) + 
