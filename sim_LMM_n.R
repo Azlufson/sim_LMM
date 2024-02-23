@@ -13,6 +13,7 @@
 
 ##TODO: KR für REML?, PB für REML?
 ##      funktionen aus anderem skript importieren?
+##      implement MCMC
 
 library(future.apply)
 library(parallel)
@@ -87,7 +88,7 @@ plan("multisession", workers = detectCores())
 
 #Parameter für parametric bootstrap
 nsim.mixed <- 100 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim.pb)
-nsim.pb <- 500 
+nsim.pb <- 500
 
 ###LRT
 ##REML (nicht empfohlen)
@@ -98,11 +99,6 @@ data_LRT.REML_long <- gather(data_LRT.REML_long, sim, p.LRT.REML, (ncol(grid)+1)
 data_LRT.REML_long %>% 
   group_by(n.subj, n.obs) %>% 
   summarize(prop_LRT.REML = mean(p.LRT.REML <= .05))
-#adäquates Alpha-Niveau wird kaum erreicht
-#interessanterweise eher bei mittlerer Stichprobengröße
-#bei kleinen Stichproben anti-konservativ
-#ansonsten zu konservativ
-#mit höherem nsim wiederholen
 
 ##Daten für Plot:
 p_LRT.REML <- data_LRT.REML_long %>% 
