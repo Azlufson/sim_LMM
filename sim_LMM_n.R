@@ -7,9 +7,12 @@
 #                 MCMC (Baayen et al., 2008)
 #                 t as z
 
-##TODO: KR für REML?
-##      alle Funktionen umschrieben, damit daten und modell angegeben werden kann
-##      grafik änder auf 5 methoden
+####Stichprobengröße
+#einfaches Modell nur mit random intercept
+# y = b0 + b1*obs + b2*cond + (1|subj) + epsilon
+
+##TODO: KR für REML?, PB für REML?
+##      funktionen aus anderem skript importieren?
 
 library(future.apply)
 library(parallel)
@@ -19,11 +22,6 @@ library(lmerTest)
 library(pbkrtest)
 library(afex)
 
-nsim <- 10000
-
-####Stichprobengröße
-#einfaches Modell nur mit random intercept
-# y = b0 + b1*obs + b2*cond + (1|subj) + epsilon
 sim_data.n_int <- function(n.subj, n.obs, b0, beta_obs, beta_cond, sd.int_subj, sd_eps) {
   subj <- rep(1:n.subj, each = n.obs)
   obs <- rep(rep(c(0,1), each = n.obs/2), n.subj)
@@ -33,8 +31,7 @@ sim_data.n_int <- function(n.subj, n.obs, b0, beta_obs, beta_cond, sd.int_subj, 
   return(data.frame(subj, obs, cond, y))
 }
 
-
-###LRT:
+##LRT:
 #alt (keine modellspezifikation möglich):
 # test_lrtstat.fixed <- function(n.subj = 6, n.obs = 10, beta_obs = 0, REML = TRUE) {
 #   data <- sim_data.n_int(n.subj = n.subj, n.obs = n.obs, b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1)
@@ -49,20 +46,51 @@ test_lrtstat <- function(data, m.full, m.null, REML = TRUE) {
   return(pchisq(as.numeric(2 * (logLik(full) - logLik(null))), 1, lower = FALSE))
 }
 
-#full and null model:
+##t-as-z
+test_TasZ.fixed <- function(data, m.full, REML = TRUE) {
+  return(summary(lmer(model, data = data, REML = REML))$coefficients[2,4])
+}
+
+##KR, SW
+#ddf ... Art der Approximation
+test_approx.fixed <- function(data, model, REML = TRUE, ddf = "Satterthwaite") {
+  return(anova(lmer(model, data = data, REML = REML), ddf = ddf)$`Pr(>F)`[1])
+}
+
+##Funktion zur Ausgabe des p-Wertes des fixed effects via parametric bootstrap
+#mixed auf afex (nutzt pbmodcomp)
+#nsim.pb bestimmt anzahl an bootstrap-simulationen von pbmodcomp
+#cl erlaubt multicore nutzung (via package parallel)
+test_PB.fixed <- function(mode, data, nsim.pb = 1000, cl = NULL) {
+  return(suppressMessages(mixed(model, data = data, method = "PB", progress = FALSE, cl = cl, args_test = list(nsim = nsim.pb, cl = cl))$anova_table$`Pr(>PB)`[1]))
+}
+#suppressMessages: "mixed" will throw a message if numerical variables are not centered on 0, as main effects (of other variables then the numeric one) can be hard to interpret if numerical variables appear in interactions. See Dalal & Zickar (2012).
+#kleine Tests haben ergeben, dass es am effizientesten ist, fürs fitten und fürs bootstrap multicore zu nutzen
+
+
+#full and null model (LRT):
 m.full <- y ~ obs + cond + (1|subj)
 m.null <- y ~ cond + (1|subj)
 
+#model
+model <- y ~ obs + cond + (1|subj)
+
 #Parameter für Simulationen
-beta_obs <- 0
+beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
 n.subj <- c(4, 6, 10, 16)
 n.obs <- c(4, 6, 10, 16)
 grid <- expand.grid(n.subj, n.obs)
 colnames(grid) <- c("n.subj", "n.obs")
 
-plan("multisession", workers = detectCores()-1)
+#future_apply
+plan("multisession", workers = detectCores())
 
-#REML (nicht empfohlen)
+#Parameter für parametric bootstrap
+nsim.mixed <- 100 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim.pb)
+nsim.pb <- 500 
+
+###LRT
+##REML (nicht empfohlen)
 data_LRT.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_lrtstat(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), m.full, m.null)), future.seed = TRUE))
 data_LRT.REML_long <- cbind(grid, data_LRT.REML)
 data_LRT.REML_long <- gather(data_LRT.REML_long, sim, p.LRT.REML, (ncol(grid)+1):ncol(data_LRT.REML_long))
@@ -76,7 +104,7 @@ data_LRT.REML_long %>%
 #ansonsten zu konservativ
 #mit höherem nsim wiederholen
 
-#Daten für Plot:
+##Daten für Plot:
 p_LRT.REML <- data_LRT.REML_long %>% 
   group_by(n.subj, n.obs) %>% 
   summarize(k = sum(p.LRT.REML < .05) + 1.96^2/2,
@@ -88,7 +116,7 @@ p_LRT.REML <- data_LRT.REML_long %>%
   mutate(REML = 1,
          method = 1)
 
-#ML
+##ML
 data_LRT.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_lrtstat(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), m.full, m.null, REML = FALSE)), future.seed = TRUE))
 data_LRT.ML_long <- cbind(grid, data_LRT.ML)
 data_LRT.ML_long <- gather(data_LRT.ML_long, sim, p.LRT.ML, (ncol(grid)+1):ncol(data_LRT.ML_long))
@@ -96,9 +124,6 @@ data_LRT.ML_long <- gather(data_LRT.ML_long, sim, p.LRT.ML, (ncol(grid)+1):ncol(
 data_LRT.ML_long %>% 
   group_by(n.subj, n.obs) %>% 
   summarize(prop_LRT.ML = mean(p.LRT.ML <= .05))
-#scheint besser als mit REML
-#in keiner Bedingung anti-konservativ
-#größere Stichproben besser
 
 p_LRT.ML <- data_LRT.ML_long %>% 
   group_by(n.subj, n.obs) %>% 
@@ -112,14 +137,7 @@ p_LRT.ML <- data_LRT.ML_long %>%
          method = 1)
 
 ###t-as-z
-
-test_TasZ.fixed <- function(data, m.full, REML = TRUE) {
-  return(summary(lmer(model, data = data, REML = REML))$coefficients[2,4])
-}
-
-model <- y ~ obs + cond + (1|subj)
-beta_obs <- 0
-
+##REML
 data_TasZ.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_TasZ.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), model)), future.seed = TRUE))
 data_TasZ.REML_long <- cbind(grid, data_TasZ.REML)
 data_TasZ.REML_long <- gather(data_TasZ.REML_long, sim, p.TasZ.REML, (ncol(grid)+1):ncol(data_TasZ.REML_long))
@@ -127,7 +145,6 @@ data_TasZ.REML_long <- gather(data_TasZ.REML_long, sim, p.TasZ.REML, (ncol(grid)
 data_TasZ.REML_long %>% 
   group_by(n.subj, n.obs) %>% 
   summarize(prop_TasZ.REML = mean(abs(p.TasZ.REML) >= 1.96))
-#in allen Bedingungen zu konservativ
 
 p_TasZ.REML <- data_TasZ.REML_long %>% 
   group_by(n.subj, n.obs) %>% 
@@ -140,6 +157,7 @@ p_TasZ.REML <- data_TasZ.REML_long %>%
   mutate(REML = 1,
          method = 2)
 
+##ML
 data_TasZ.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_TasZ.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), model, REML = FALSE)), future.seed = TRUE))
 data_TasZ.ML_long <- cbind(grid, data_TasZ.ML)
 data_TasZ.ML_long <- gather(data_TasZ.ML_long, sim, p.TasZ.ML, (ncol(grid)+1):ncol(data_TasZ.ML_long))
@@ -147,7 +165,6 @@ data_TasZ.ML_long <- gather(data_TasZ.ML_long, sim, p.TasZ.ML, (ncol(grid)+1):nc
 data_TasZ.ML_long %>% 
   group_by(n.subj, n.obs) %>% 
   summarize(prop_TasZ.ML = mean(abs(p.TasZ.ML) >= 1.96))
-#in allen Bedingungen zu konservativ
 
 p_TasZ.ML <- data_TasZ.ML_long %>% 
   group_by(n.subj, n.obs) %>% 
@@ -160,18 +177,10 @@ p_TasZ.ML <- data_TasZ.ML_long %>%
   mutate(REML = 0,
          method = 2)
 
-###KR vs SW
+###KR, SW
 #anova aus lmertest
 
-#Funktion für Datengeneration und F-Test
-test_approx.fixed <- function(data, model, REML = TRUE, ddf = "Satterthwaite") {
-  return(anova(lmer(model, data = data, REML = REML), ddf = ddf)$`Pr(>F)`[1])
-}
-
-model <- y ~ obs + cond + (1|subj)
-beta_obs <- 0
-
-#Sattherthwaire, REML
+##Sattherthwaire, REML
 ddf <- "Satterthwaite"
 REML <- TRUE
 data_SW.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), model, REML = REML, ddf = ddf)), future.seed = TRUE))
@@ -181,7 +190,6 @@ data_SW.REML_long <- gather(data_SW.REML_long, sim, p.SW.REML, (ncol(grid)+1):nc
 data_SW.REML_long %>% 
   group_by(n.subj, n.obs) %>% 
   summarize(prop_SW.REML = mean(p.SW.REML <= .05))
-#sehr gut für einfaches modell
 
 p_SW.REML <- data_SW.REML_long %>% 
   group_by(n.subj, n.obs) %>% 
@@ -194,7 +202,7 @@ p_SW.REML <- data_SW.REML_long %>%
   mutate(REML = 1,
          method = 3)
 
-#Kenward-Roger, REML
+##Kenward-Roger, REML
 ddf <- "Kenward-Roger"
 REML <- TRUE
 data_KR.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), model, REML = TRUE, ddf = "Satterthwaite")), future.seed = TRUE))
@@ -204,7 +212,6 @@ data_KR.REML_long <- gather(data_KR.REML_long, sim, p.KR.REML, (ncol(grid)+1):nc
 data_KR.REML_long %>% 
   group_by(n.subj, n.obs) %>% 
   summarize(prop_KR.REML = mean(p.KR.REML <= .05))
-#wirkt etwas schlechter als SW
 
 p_KR.REML <- data_KR.REML_long %>% 
   group_by(n.subj, n.obs) %>% 
@@ -217,7 +224,7 @@ p_KR.REML <- data_KR.REML_long %>%
   mutate(REML = 1,
          method = 4)
 
-#Sattherthwaire, ML
+##Sattherthwaire, ML
 ddf <- "Satterthwaite"
 REML <- FALSE
 data_SW.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1), model, REML = TRUE, ddf = "Satterthwaite")), future.seed = TRUE))
@@ -227,7 +234,6 @@ data_SW.ML_long <- gather(data_SW.ML_long, sim, p.SW.ML, (ncol(grid)+1):ncol(dat
 data_SW.ML_long %>% 
   group_by(n.subj, n.obs) %>% 
   summarize(prop_SW.ML = mean(p.SW.ML <= .05))
-#fertig
 
 p_SW.ML <- data_SW.ML_long %>% 
   group_by(n.subj, n.obs) %>% 
@@ -242,11 +248,38 @@ p_SW.ML <- data_SW.ML_long %>%
 
 #Kenward-Roger nur für ML möglich!
 
-data_p <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML)
+
+###parametric bootstrap (nur ML)
+
+#Cluster festlegen (future_apply funktioniert nicht)
+(nc <- detectCores()) # number of cores
+cl <- makeCluster(rep("localhost", nc)) # make cluster
+
+data_PB <- t(apply(grid, 1, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 10, sd.int_subj = 10, sd_eps = 1), nsim.pb = nsim.pb, cl = cl))))
+data_PB_long <- cbind(grid, data_PB)
+data_PB_long <- gather(data_PB_long, sim, p.PB, (ncol(grid)+1):ncol(data_PB_long))
+
+data_PB_long %>% 
+  group_by(n.subj, n.obs) %>% 
+  summarize(prop_PB = mean(p.PB <= .05))
+
+p_PB <- data_PB_long %>% 
+  group_by(n.subj, n.obs) %>% 
+  summarize(k = sum(p.PB < .05) + 1.96^2/2,
+            n = n() + 1.96^2,
+            p = k/n,
+            p_l = p - 1.96 * sqrt(p*(1-p)/n),
+            p_u = p + 1.96 * sqrt(p*(1-p)/n)) %>% 
+  select(n.obs, n.subj, p, p_l, p_u) %>% 
+  mutate(REML = 0,
+         method = 5)
+
+### Grafiken der Ergebnisse
+data_p <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML, p_PB)
 data_p$n.obs <- as.factor(data_p$n.obs)
 data_p$n.subj <- as.factor(data_p$n.subj)
 data_p$REML <- factor(data_p$REML, labels = c("ML", "REML"))
-data_p$method <- factor(data_p$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger"))
+data_p$method <- factor(data_p$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger", "Parametric Bootstrap"))
 
 #alle Methoden
 ggplot(data_p, aes(x = as.factor(n.obs), y = p, col = REML, shape = method)) + 
@@ -305,60 +338,3 @@ data_p %>%
   geom_hline(yintercept = .05) +
   facet_wrap(~n.subj, nrow = 1) +
   ylim(0, .12)
-
-
-###parametric bootstrap (nur ML)
-
-t <- mixed(model, data = sim_data.n_int(n.subj = 4, n.obs = 4, b0 = 10, beta_obs = 0, beta_cond = 10, sd.int_subj = 10, sd_eps = 1), method = "PB")
-t$anova_table$`Pr(>PB)`[1]
-
-#Funktion zur Ausgabe des p-Wertes des fixed effects via parametric bootstrap
-#mixed auf afex (nutzt pbmodcomp)
-#nsim bestimmt anzahl an bootstrap-simulationen von pbmodcomp
-#cl erlaubt multicore nutzung (via package parallel)
-test_PB.fixed <- function(mode, data, nsim.pb = 1000, cl = NULL) {
-  return(suppressMessages(mixed(model, data = data, method = "PB", progress = FALSE, cl = cl, args_test = list(nsim = nsim.pb, cl = cl))$anova_table$`Pr(>PB)`[1]))
-}
-#suppressMessages: "mixed" will throw a message if numerical variables are not centered on 0, as main effects (of other variables then the numeric one) can be hard to interpret if numerical variables appear in interactions. See Dalal & Zickar (2012).
-
-nsim <- 1000 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim = 1000)
-nsim.pb <- 1000
-model <- y ~ obs + cond + (1|subj)
-beta_obs <- 0
-
-#Cluster festlegen (future_apply funktioniert nicht)
-(nc <- detectCores()) # number of cores
-cl <- makeCluster(rep("localhost", nc)) # make cluster
-
-data_PB <- t(apply(grid, 1, function(x) replicate(nsim, test_PB.fixed(model, data = sim_data.n_int(n.subj = x[1], n.obs = x[2], b0 = 10, beta_obs = beta_obs, beta_cond = 10, sd.int_subj = 10, sd_eps = 1), nsim.pb = nsim.pb, cl = cl))))
-data_PB_long <- cbind(grid, data_PB)
-data_PB_long <- gather(data_PB_long, sim, p.PB, (ncol(grid)+1):ncol(data_PB_long))
-
-data_PB_long %>% 
-  group_by(n.subj, n.obs) %>% 
-  summarize(prop_PB = mean(p.PB <= .05))
-
-p_PB <- data_PB_long %>% 
-  group_by(n.subj, n.obs) %>% 
-  summarize(k = sum(p.PB < .05) + 1.96^2/2,
-            n = n() + 1.96^2,
-            p = k/n,
-            p_l = p - 1.96 * sqrt(p*(1-p)/n),
-            p_u = p + 1.96 * sqrt(p*(1-p)/n)) %>% 
-  select(n.obs, n.subj, p, p_l, p_u) %>% 
-  mutate(REML = 0,
-         method = 5)
-
-##Stärke des Effekts
-
-#Parameter für Simulationen
-es <- seq(0, 1, .2)
-nsim <- 10000
-#für mittlere Stichprobengröße?
-
-
-#full and null model:
-m.full <- y ~ obs + cond + (1|subj)
-m.null <- y ~ cond + (1|subj)
-
-plan("multisession", workers = detectCores()-1)
