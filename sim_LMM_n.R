@@ -22,8 +22,9 @@ library(lme4)
 library(lmerTest)
 library(pbkrtest)
 library(afex)
+library(languageR)
 
-sim_data.n_int <- function(n.subj, n.obs, b0, beta_obs, beta_cond, sd.int_subj, sd_eps) {
+sim_data.n_int <- function(n.subj = 10, n.obs = 6, b0 = 10, beta_obs = 0, beta_cond = 5, sd.int_subj = 6, sd_eps = 2) {
   subj <- rep(1:n.subj, each = n.obs)
   obs <- rep(rep(c(0,1), each = n.obs/2), n.subj)
   cond <- rep(c(0,1), n.subj*n.obs/2)
