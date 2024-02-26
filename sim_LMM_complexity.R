@@ -18,6 +18,7 @@
 ##      funktionen aus anderem skript importieren?
 ##      ES für ungerade zahlen
 ##      future_sapply vs future_replicate testen
+##      nicht nur factorial design?
 
 #Modelle: 
 #1 random intercept                       y = b0 + b1*obs + b2*cond + (1|subj) + epsilon
@@ -38,13 +39,51 @@ library(afex)
 #einfaches Modell nur mit random intercept
 # y = b0 + b1*obs + b2*cond + (1|subj) + epsilon
 #n.subj und n.obs müssen gerade sein
-sim_data_int <- function(n.subj = 10, n.obs = 6, b0 = 10, beta_obs = 0, beta_cond = 5, sd.int_subj = 6, sd_eps = 2) {
-  subj <- rep(1:n.subj, each = n.obs)
-  obs <- rep(rep(c(0,1), each = n.obs/2), n.subj)
-  cond <- rep(c(0,1), n.subj*n.obs/2)
-  subj_int <- rep(rnorm(n.subj, 0, sd.int_subj), each = n.obs)
-  y <- b0 + beta_obs * obs + beta_cond * cond + subj_int + rnorm(n.obs*n.subj, 0, sd_eps)
-  return(data.frame(subj, obs, cond, y))
+sim_data_1RI <- function(n.subj = 10, n.obs = 6, b0 = 10, beta_obs = 0, beta_cond = 5, sd.int_subj = 6, sd_eps = 2) {
+  design <-
+    fixed.factor("obs", levels=c(1:n.obs)) +
+    fixed.factor("cond", levels=c(0:1)) +
+    random.factor("Subj", instances=n.subj)
+  dat <- design.codes(design)
+  dat$ysim <- simLMM(formula = ~ 1 + obs + cond + (1|Subj),
+                     data = dat,
+                     Fixef = c(b0, beta_obs, beta_cond),
+                     VC_sd = list(c(sd.int_subj), sd_eps),
+                     empirical = TRUE)
+  return(dat)
+}
+
+sim_data_1RI.1RS <- function(n.subj = 10, n.obs = 6, n.group = 2, b0 = 10, beta_obs = 0, beta_cond = 5, beta_group = 10, sd.int_subj = 6, sd.slope_group = 10, corr_subj.group = .5, sd_eps = 2) {
+  design <-
+    fixed.factor("obs", levels=c(1:n.obs)) +
+    fixed.factor("cond", levels=c(0:1)) +
+    random.factor("Subj", instances=n.subj) +
+    random.factor("Group", instances = n.group)
+  dat <- design.codes(design)
+  dat$ysim <- simLMM(formula = ~ 1 + obs + cond + Group + (1 + Group|Subj),
+                     data = dat,
+                     Fixef = c(b0, beta_obs, beta_cond, beta_group),
+                     VC_sd = list(c(sd.int_subj, sd.slope_group), sd_eps),
+                     CP = corr_subj.group,
+                     empirical = TRUE)
+  return(dat)
+}
+
+sim_data_1RI.2RS <- function(n.subj = 10, n.obs = 6, n.group1 = 2, n.group2 = 2, b0 = 10, beta_obs = 0, beta_cond = 5, beta_group1 = 10, beta_group2 = 10, sd.int_subj = 6, sd.slope_group1 = 10, sd.slope_group2 = 15, corr_subj.group = .5, sd_eps = 2) {
+  design <-
+    fixed.factor("obs", levels=c(1:n.obs)) +
+    fixed.factor("cond", levels=c(0:1)) +
+    random.factor("Subj", instances=n.subj) +
+    random.factor("Group1", instances = n.group1) + 
+    random.factor("Group2", instances = n.group2)
+  dat <- design.codes(design)
+  dat$ysim <- simLMM(formula = ~ 1 + obs + cond + Group1 + Group2 + (1 + Group1 + Group2|Subj),
+                     data = dat,
+                     Fixef = c(b0, beta_obs, beta_cond, beta_group1, beta_group2),
+                     VC_sd = list(c(sd.int_subj, sd.slope_group1, sd.slope_group2), sd_eps),
+                     CP = corr_subj.group,
+                     empirical = TRUE)
+  return(dat)
 }
 
 ##LRT:
@@ -73,7 +112,7 @@ test_approx.fixed <- function(data, model, REML = TRUE, ddf = "Satterthwaite") {
   return(anova(lmer(model, data = data, REML = REML), ddf = ddf)$`Pr(>F)`[1])
 }
 
-##Funktion zur Ausgabe des p-Wertes des fixed effects via parametric bootstrap
+##Funktion zur Ausgabe des p-Wertes des fixed effects via parametric bootstrap (package afex)
 #mixed auf afex (nutzt pbmodcomp)
 #nsim.pb bestimmt anzahl an bootstrap-simulationen von pbmodcomp
 #cl erlaubt multicore nutzung (via package parallel)
@@ -355,3 +394,12 @@ data_alpha.n %>%
   geom_hline(yintercept = .05) +
   facet_wrap(~n.subj, nrow = 1) +
   ylim(0, .12)
+
+
+
+library(designr)
+
+
+
+summary(lmer(ysim ~ 1 + obs + cond + Group + (1 + Group| Subj), data = dat))
+
