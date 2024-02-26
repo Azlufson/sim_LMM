@@ -49,7 +49,8 @@ sim_data_1RI <- function(n.subj = 10, n.obs = 6, b0 = 10, beta_obs = 0, beta_con
                      data = dat,
                      Fixef = c(b0, beta_obs, beta_cond),
                      VC_sd = list(c(sd.int_subj), sd_eps),
-                     empirical = TRUE)
+                     empirical = TRUE, 
+                     verbose = FALSE)
   return(dat)
 }
 
@@ -65,7 +66,8 @@ sim_data_1RI.1RS <- function(n.subj = 10, n.obs = 6, n.group = 2, b0 = 10, beta_
                      Fixef = c(b0, beta_obs, beta_cond, beta_group),
                      VC_sd = list(c(sd.int_subj, sd.slope_group), sd_eps),
                      CP = corr_subj.group,
-                     empirical = TRUE)
+                     empirical = TRUE, 
+                     verbose = FALSE)
   return(dat)
 }
 
@@ -82,23 +84,16 @@ sim_data_1RI.2RS <- function(n.subj = 10, n.obs = 6, n.group1 = 2, n.group2 = 2,
                      Fixef = c(b0, beta_obs, beta_cond, beta_group1, beta_group2),
                      VC_sd = list(c(sd.int_subj, sd.slope_group1, sd.slope_group2), sd_eps),
                      CP = corr_subj.group,
-                     empirical = TRUE)
+                     empirical = TRUE,
+                     verbose = FALSE)
   return(dat)
 }
 
 ##LRT:
-#alt (keine modellspezifikation möglich):
-# test_lrtstat.fixed <- function(n.subj = 6, n.obs = 10, beta_obs = 0, REML = TRUE) {
-#   data <- sim_data_int(n.subj = ES = n.obs, b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1)
-#   full <- lmer(y ~ obs + cond + (1|subj), data = data, REML = REML)
-#   null <- lmer(y ~ cond + (1|subj), data = data, REML = REML)
-#   return(pchisq(as.numeric(2 * (logLik(full) - logLik(null))), lower = FALSE))
-# }
-
 test_lrtstat <- function(data, m.full, m.null, REML = TRUE) {
   full <- lmer(m.full, data = data, REML = REML)
   null <- lmer(m.null, data = data, REML = REML)
-  return(pchisq(as.numeric(2 * (logLik(full) - logLik(null))), lower = FALSE))
+  return(pchisq(as.numeric(2 * (logLik(full) - logLik(null))), df = 1, lower = FALSE))
 }
 
 ##t-as-z
@@ -123,17 +118,14 @@ test_PB.fixed <- function(mode, data, nsim.pb = 1000, cl = NULL) {
 #kleine Tests haben ergeben, dass es am effizientesten ist, fürs fitten und fürs bootstrap multicore zu nutzen
 
 
-#full and null model (LRT):
-m.full <- y ~ obs + cond + (1|subj)
-m.null <- y ~ cond + (1|subj)
-
-#model
-model <- y ~ obs + cond + (1|subj)
-
 #Parameter für Simulationen
 nsim <- 5
 beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
-ES <- seq(0, .2)
+models <- list(ysim ~ 1 + obs + cond + (1|Subj), ysim ~ 1 + obs + cond + Group + (1 + Group|Subj), ysim ~ 1 + obs + cond + Group1 + Group2 + (1 + Group1 + Group2|Subj))
+model <- vector(mode = "character", length = length(models)) #row names for data
+for(i in 1:length(models)) {
+  model[i] <- paste(models[[i]][2], models[[i]][1], models[[i]][3])
+}
 
 #sapply
 plan("multisession", workers = detectCores())
@@ -144,13 +136,18 @@ nsim.pb <- 5
 
 ###LRT
 ##REML (nicht empfohlen)
-data_LRT.REML <- t(sapply(ES, function(x) future_replicate(nsim, test_lrtstat(sim_data_int(beta_obs = x), m.full, m.null))))
-colnames(data_LRT.REML) <- 1:nsim
-data_LRT.REML_long <- as.data.frame(cbind(ES, data_LRT.REML))
-data_LRT.REML_long <- gather(data_LRT.REML_long, sim, p.LRT.REML, 2:ncol(data_LRT.REML_long))
+data_LRT.REML_1 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI(), models[[1]], update.formula(models[[1]],  ~ . - obs))))
+colnames(data_LRT.REML_1) <- 1:nsim
+data_LRT.REML_2 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI.1RS(), models[[2]], update.formula(models[[2]],  ~ . - obs))))
+colnames(data_LRT.REML_2) <- 1:nsim
+data_LRT.REML_3 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI.2RS(), models[[3]], update.formula(models[[3]],  ~ . - obs))))
+colnames(data_LRT.REML_3) <- 1:nsim
+data_LRT.REML_long <- rbind(data_LRT.REML_1, data_LRT.REML_2, data_LRT.REML_3)
+data_LRT.REML_long <- as.data.frame(data_LRT.REML_long, row.names = model)
+data_LRT.REML_long <- gather(data_LRT.REML_long, sim, p.LRT.REML, 1:ncol(data_LRT.REML_long))
 
 data_LRT.REML_long %>% 
-  group_by(ES) %>% 
+  group_by(models) %>% 
   summarize(prop_LRT.REML = mean(p.LRT.REML <= .05))
 
 ##Daten für Plot:
