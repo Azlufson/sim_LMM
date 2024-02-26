@@ -40,7 +40,7 @@ library(MASS)
 #einfaches Modell nur mit random intercept
 # y = b0 + b1*obs + b2*cond + (1|subj) + epsilon
 #n.subj und n.obs müssen gerade sein
-# sim_data_1RI <- function(n.subj = 10, n.obs = 6, b0 = 10, beta_obs = 0, beta_cond = 5, sd.int_subj = 6, sd_eps = 2) {
+# sim_data_1RI <- function(n.subj = 10, n.obs = 6, b0 = 10, beta_age = 0, beta_cond = 5, sd.int_subj = 6, sd_eps = 2) {
 #   design <-
 #     fixed.factor("obs", levels=c(1:n.obs)) +
 #     fixed.factor("cond", levels=c(0:1)) +
@@ -48,14 +48,14 @@ library(MASS)
 #   dat <- design.codes(design)
 #   dat$y <- simLMM(formula = ~ 1 + obs + cond + (1|subj),
 #                      data = dat,
-#                      Fixef = c(b0, beta_obs, beta_cond),
+#                      Fixef = c(b0, beta_age, beta_cond),
 #                      VC_sd = list(c(sd.int_subj), sd_eps),
 #                      empirical = TRUE,
 #                      verbose = FALSE)
 #   return(dat)
 # }
 # 
-# sim_data_1RI.1RS <- function(n.subj = 10, n.obs = 6, n.group = 2, b0 = 10, beta_obs = 0, beta_cond = 5, beta_group = 10, sd.int_subj = 6, sd.slope_group = 10, corr_subj.group = .5, sd_eps = 2) {
+# sim_data_1RI.1RS <- function(n.subj = 10, n.obs = 6, n.group = 2, b0 = 10, beta_age = 0, beta_cond = 5, beta_group = 10, sd.int_subj = 6, sd.slope_group = 10, corr_subj.group = .5, sd_eps = 2) {
 #   design <-
 #     fixed.factor("obs", levels=c(1:n.obs)) +
 #     fixed.factor("cond", levels=c(0:1)) +
@@ -64,7 +64,7 @@ library(MASS)
 #   dat <- design.codes(design)
 #   dat$y <- simLMM(formula = ~ 1 + obs + cond + group + (1 + group|subj),
 #                      data = dat,
-#                      Fixef = c(b0, beta_obs, beta_cond, beta_group),
+#                      Fixef = c(b0, beta_age, beta_cond, beta_group),
 #                      VC_sd = list(c(sd.int_subj, sd.slope_group), sd_eps),
 #                      CP = corr_subj.group,
 #                      empirical = TRUE,
@@ -72,7 +72,7 @@ library(MASS)
 #   return(dat)
 # }
 # 
-# sim_data_1RI.2RS <- function(n.subj = 10, n.obs = 6, n.group1 = 2, n.group2 = 2, b0 = 10, beta_obs = 0, beta_cond = 5, beta_group1 = 10, beta_group2 = 10, sd.int_subj = 6, sd.slope_group1 = 10, sd.slope_group2 = 15, corr_subj.group = .5, sd_eps = 2) {
+# sim_data_1RI.2RS <- function(n.subj = 10, n.obs = 6, n.group1 = 2, n.group2 = 2, b0 = 10, beta_age = 0, beta_cond = 5, beta_group1 = 10, beta_group2 = 10, sd.int_subj = 6, sd.slope_group1 = 10, sd.slope_group2 = 15, corr_subj.group = .5, sd_eps = 2) {
 #   design <-
 #     fixed.factor("obs", levels=c(1:n.obs)) +
 #     fixed.factor("cond", levels=c(0:1)) +
@@ -82,7 +82,7 @@ library(MASS)
 #   dat <- design.codes(design)
 #   dat$y <- simLMM(formula = ~ 1 + obs + cond + group1 + group2 + (1 + group1 + group2|subj),
 #                      data = dat,
-#                      Fixef = c(b0, beta_obs, beta_cond, beta_group1, beta_group2),
+#                      Fixef = c(b0, beta_age, beta_cond, beta_group1, beta_group2),
 #                      VC_sd = list(c(sd.int_subj, sd.slope_group1, sd.slope_group2), sd_eps),
 #                      CP = corr_subj.group,
 #                      empirical = TRUE,
@@ -146,11 +146,11 @@ test_lrtstat <- function(data, m.full, m.null, REML = TRUE) {
   null <- lmer(m.null, data = data, REML = REML)
   return(pchisq(as.numeric(2 * (logLik(full) - logLik(null))), df = 1, lower = FALSE))
 }
-m.full <- y ~ obs + cond + (1|subj)
-m.null <- y ~ cond + (1|subj)
-data <- sim_data_1RI(beta_obs = .1)
-data <- sim_data_int()
-REML = TRUE
+m.full <- y ~ age + (1|observation)
+m.null <- y ~ (1|observation)
+data <- sim_data_1RI(beta_age = .1)
+data <- sim_data(model = 1)
+REML = FALSE
 full <- lmer(m.full, data = data, REML = REML)
 null <- lmer(m.null, data = data, REML = REML)
 pchisq(as.numeric(2 * (logLik(full) - logLik(null))), df = 1, lower = FALSE)
@@ -180,8 +180,8 @@ test_PB.fixed <- function(mode, data, nsim.pb = 1000, cl = NULL) {
 
 #Parameter für Simulationen
 nsim <- 500
-beta_obs <- .2 #auf diesen fixed effect wird jeweils getestet
-models <- list(y ~ 1 + obs + cond + (1|subj), y ~ 1 + obs + cond + group + (1 + group|subj), y ~ 1 + obs + cond + group1 + group2 + (1 + group1 + group2|subj))
+beta_age <- 0 #auf diesen fixed effect wird jeweils getestet
+models <- 1:3
 
 #sapply
 plan("multisession", workers = detectCores())
@@ -191,15 +191,16 @@ nsim.mixed <- 5 #niedriger, weil pro iteration auch noch gebootstrapped wird (mi
 nsim.pb <- 5
 
 ###LRT
+models_LRT <- c(y ~ 1 + age + (1|observation), y ~ 1 + age + school + (school|observation), y ~ 1 + age + school + class + (school + class|observation))
 ##REML (nicht empfohlen)
-data_LRT.REML_1 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI(beta_obs = beta_obs), models[[1]], update.formula(models[[1]],  ~ . - obs))))
+data_LRT.REML_1 <- t(future_replicate(nsim, test_lrtstat(sim_data(model = 1, beta_age = beta_age), models_LRT[[1]], update.formula(models_LRT[[1]],  ~ . - obs))))
 colnames(data_LRT.REML_1) <- 1:nsim
-data_LRT.REML_2 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI.1RS(beta_obs = beta_obs), models[[2]], update.formula(models[[2]],  ~ . - obs))))
+data_LRT.REML_2 <- t(future_replicate(nsim, test_lrtstat(sim_data(model = 2, beta_age = beta_age), models_LRT[[2]], update.formula(models_LRT[[2]],  ~ . - obs))))
 colnames(data_LRT.REML_2) <- 1:nsim
-data_LRT.REML_3 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI.2RS(beta_obs = beta_obs), models[[3]], update.formula(models[[3]],  ~ . - obs))))
+data_LRT.REML_3 <- t(future_replicate(nsim, test_lrtstat(sim_data(model = 3, beta_age = beta_age), models_LRT[[3]], update.formula(models_LRT[[3]],  ~ . - obs))))
 colnames(data_LRT.REML_3) <- 1:nsim
 data_LRT.REML_long <- rbind(data_LRT.REML_1, data_LRT.REML_2, data_LRT.REML_3)
-data_LRT.REML_long <- as.data.frame(cbind(model = 1:length(models), data_LRT.REML_long))
+data_LRT.REML_long <- as.data.frame(cbind(models, data_LRT.REML_long))
 data_LRT.REML_long <- gather(data_LRT.REML_long, sim, p.LRT.REML, 2:ncol(data_LRT.REML_long))
 
 data_LRT.REML_long %>% 
@@ -219,27 +220,15 @@ p_LRT.REML <- data_LRT.REML_long %>%
          method = 1)
 
 ##ML
-data_LRT.ML_1 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI(beta_obs = beta_obs), models[[1]], update.formula(models[[1]],  ~ . - obs), REML = FALSE)))
+data_LRT.ML_1 <- t(future_replicate(nsim, test_lrtstat(sim_data(model = 1, beta_age = beta_age), models_LRT[[1]], update.formula(models_LRT[[1]],  ~ . - obs), REML = FALSE)))
 colnames(data_LRT.ML_1) <- 1:nsim
-data_LRT.ML_2 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI.1RS(beta_obs = beta_obs), models[[2]], update.formula(models[[2]],  ~ . - obs), REML = FALSE)))
+data_LRT.ML_2 <- t(future_replicate(nsim, test_lrtstat(sim_data(model = 2, beta_age = beta_age), models_LRT[[2]], update.formula(models_LRT[[2]],  ~ . - obs), REML = FALSE)))
 colnames(data_LRT.ML_2) <- 1:nsim
-data_LRT.ML_3 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI.2RS(beta_obs = beta_obs), models[[3]], update.formula(models[[3]],  ~ . - obs), REML = FALSE)))
+data_LRT.ML_3 <- t(future_replicate(nsim, test_lrtstat(sim_data(model = 3, beta_age = beta_age), models_LRT[[3]], update.formula(models_LRT[[3]],  ~ . - obs), REML = FALSE)))
 colnames(data_LRT.ML_3) <- 1:nsim
 data_LRT.ML_long <- rbind(data_LRT.ML_1, data_LRT.ML_2, data_LRT.ML_3)
 data_LRT.ML_long <- as.data.frame(cbind(model = 1:length(models), data_LRT.ML_long))
 data_LRT.ML_long <- gather(data_LRT.ML_long, sim, p.LRT.ML, 2:ncol(data_LRT.ML_long))
-
-data_LRT.ML_1 <- t(future_replicate(nsim, test_lrtstat(sim_data_int(beta_obs = beta_obs), models[[1]], update.formula(models[[1]],  ~ . - obs), REML = FALSE)))
-colnames(data_LRT.ML_1) <- 1:nsim
-data_LRT.ML_2 <- t(future_replicate(nsim, test_lrtstat(sim_data_int(beta_obs = beta_obs), models[[2]], update.formula(models[[2]],  ~ . - obs), REML = FALSE)))
-colnames(data_LRT.ML_2) <- 1:nsim
-data_LRT.ML_3 <- t(future_replicate(nsim, test_lrtstat(sim_data_int(beta_obs = beta_obs), models[[3]], update.formula(models[[3]],  ~ . - obs), REML = FALSE)))
-colnames(data_LRT.ML_3) <- 1:nsim
-data_LRT.ML_long <- rbind(data_LRT.ML_1, data_LRT.ML_2, data_LRT.ML_3)
-data_LRT.ML_long <- as.data.frame(cbind(model = 1:length(models), data_LRT.ML_long))
-data_LRT.ML_long <- gather(data_LRT.ML_long, sim, p.LRT.ML, 2:ncol(data_LRT.ML_long))
-
-mean(data_LRT.ML_1 < .05)
 
 data_LRT.ML_long %>% 
   group_by(model) %>% 
@@ -258,7 +247,7 @@ p_LRT.ML <- data_LRT.ML_long %>%
 
 ###t-as-z
 ##REML
-data_TasZ.REML <- t(sapply(models, function(x) future_replicate(nsim, test_TasZ.fixed(sim_data_int(beta_obs = x), model))))
+data_TasZ.REML <- t(sapply(models, function(x) future_replicate(nsim, test_TasZ.fixed(sim_data(model = x, beta_age = beta_age), model))))
 colnames(data_TasZ.REML) <- 1:nsim
 data_TasZ.REML_long <- as.data.frame(cbind(models, data_TasZ.REML))
 data_TasZ.REML_long <- gather(data_TasZ.REML_long, sim, p.TasZ.REML, 2:ncol(data_TasZ.REML_long))
@@ -279,7 +268,7 @@ p_TasZ.REML <- data_TasZ.REML_long %>%
          method = 2)
 
 ##ML
-data_TasZ.ML <- t(sapply(models, function(x) future_replicate(nsim, test_TasZ.fixed(sim_data_int(beta_obs = x), model, REML = FALSE))))
+data_TasZ.ML <- t(sapply(models, function(x) future_replicate(nsim, test_TasZ.fixed(sim_data_int(beta_age = x), model, REML = FALSE))))
 colnames(data_TasZ.ML) <- 1:nsim
 data_TasZ.ML_long <- as.data.frame(cbind(models, data_TasZ.ML))
 data_TasZ.ML_long <- gather(data_TasZ.ML_long, sim, p.TasZ.ML, 2:ncol(data_TasZ.ML_long))
@@ -305,7 +294,7 @@ p_TasZ.ML <- data_TasZ.ML_long %>%
 ##Sattherthwaire, REML
 ddf <- "Satterthwaite"
 REML <- TRUE
-data_SW.REML <- t(sapply(models, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = REML, ddf = ddf))))
+data_SW.REML <- t(sapply(models, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_age = x), model, REML = REML, ddf = ddf))))
 colnames(data_SW.REML) <- 1:nsim
 data_SW.REML_long <- as.data.frame(cbind(models, data_SW.REML))
 data_SW.REML_long <- gather(data_SW.REML_long, sim, p.SW.REML, 2:ncol(data_SW.REML_long))
@@ -328,7 +317,7 @@ p_SW.REML <- data_SW.REML_long %>%
 ##Kenward-Roger, REML
 ddf <- "Kenward-Roger"
 REML <- TRUE
-data_KR.REML <- t(sapply(models, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = TRUE, ddf = "Satterthwaite"))))
+data_KR.REML <- t(sapply(models, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_age = x), model, REML = TRUE, ddf = "Satterthwaite"))))
 colnames(data_KR.REML) <- 1:nsim
 data_KR.REML_long <- as.data.frame(cbind(models, data_KR.REML))
 data_KR.REML_long <- gather(data_KR.REML_long, sim, p.KR.REML, 2:ncol(data_KR.REML_long))
@@ -351,7 +340,7 @@ p_KR.REML <- data_KR.REML_long %>%
 ##Sattherthwaire, ML
 ddf <- "Satterthwaite"
 REML <- FALSE
-data_SW.ML <- t(sapply(models, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = TRUE, ddf = "Satterthwaite"))))
+data_SW.ML <- t(sapply(models, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_age = x), model, REML = TRUE, ddf = "Satterthwaite"))))
 colnames(data_SW.ML) <- 1:nsim
 data_SW.ML_long <- as.data.frame(cbind(models, data_SW.ML))
 data_SW.ML_long <- gather(data_SW.ML_long, sim, p.SW.ML, 2:ncol(data_SW.ML_long))
@@ -380,7 +369,7 @@ p_SW.ML <- data_SW.ML_long %>%
 nc <- detectCores() # number of cores
 cl <- makeCluster(rep("localhost", nc)) # make cluster
 
-data_alpha.nB <- t(sapply(models, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = sim_data_int(beta_obs = x), nsim.pb = nsim.pb, cl = cl))))
+data_alpha.nB <- t(sapply(models, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = sim_data_int(beta_age = x), nsim.pb = nsim.pb, cl = cl))))
 colnames(data_alpha.nB) <- 1:nsim
 data_alpha.nB_long <- as.data.frame(cbind(models, data_alpha.nB))
 data_alpha.nB_long <- gather(data_alpha.nB_long, sim, p.PB, 2:ncol(data_alpha.nB_long))
