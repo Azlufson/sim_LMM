@@ -16,7 +16,7 @@
 
 ##TODO: KR für REML?, PB für REML?
 ##      funktionen aus anderem skript importieren?
-##      ES für ungerade zahlen
+##      models für ungerade zahlen
 ##      future_sapply vs future_replicate testen
 ##      nicht nur factorial design?
 
@@ -43,9 +43,9 @@ sim_data_1RI <- function(n.subj = 10, n.obs = 6, b0 = 10, beta_obs = 0, beta_con
   design <-
     fixed.factor("obs", levels=c(1:n.obs)) +
     fixed.factor("cond", levels=c(0:1)) +
-    random.factor("Subj", instances=n.subj)
+    random.factor("subj", instances=n.subj)
   dat <- design.codes(design)
-  dat$ysim <- simLMM(formula = ~ 1 + obs + cond + (1|Subj),
+  dat$y <- simLMM(formula = ~ 1 + obs + cond + (1|subj),
                      data = dat,
                      Fixef = c(b0, beta_obs, beta_cond),
                      VC_sd = list(c(sd.int_subj), sd_eps),
@@ -58,10 +58,10 @@ sim_data_1RI.1RS <- function(n.subj = 10, n.obs = 6, n.group = 2, b0 = 10, beta_
   design <-
     fixed.factor("obs", levels=c(1:n.obs)) +
     fixed.factor("cond", levels=c(0:1)) +
-    random.factor("Subj", instances=n.subj) +
-    random.factor("Group", instances = n.group)
+    random.factor("subj", instances=n.subj) +
+    random.factor("group", instances = n.group)
   dat <- design.codes(design)
-  dat$ysim <- simLMM(formula = ~ 1 + obs + cond + Group + (1 + Group|Subj),
+  dat$y <- simLMM(formula = ~ 1 + obs + cond + group + (1 + group|subj),
                      data = dat,
                      Fixef = c(b0, beta_obs, beta_cond, beta_group),
                      VC_sd = list(c(sd.int_subj, sd.slope_group), sd_eps),
@@ -75,11 +75,11 @@ sim_data_1RI.2RS <- function(n.subj = 10, n.obs = 6, n.group1 = 2, n.group2 = 2,
   design <-
     fixed.factor("obs", levels=c(1:n.obs)) +
     fixed.factor("cond", levels=c(0:1)) +
-    random.factor("Subj", instances=n.subj) +
-    random.factor("Group1", instances = n.group1) + 
-    random.factor("Group2", instances = n.group2)
+    random.factor("subj", instances=n.subj) +
+    random.factor("group1", instances = n.group1) + 
+    random.factor("group2", instances = n.group2)
   dat <- design.codes(design)
-  dat$ysim <- simLMM(formula = ~ 1 + obs + cond + Group1 + Group2 + (1 + Group1 + Group2|Subj),
+  dat$y <- simLMM(formula = ~ 1 + obs + cond + group1 + group2 + (1 + group1 + group2|subj),
                      data = dat,
                      Fixef = c(b0, beta_obs, beta_cond, beta_group1, beta_group2),
                      VC_sd = list(c(sd.int_subj, sd.slope_group1, sd.slope_group2), sd_eps),
@@ -95,6 +95,15 @@ test_lrtstat <- function(data, m.full, m.null, REML = TRUE) {
   null <- lmer(m.null, data = data, REML = REML)
   return(pchisq(as.numeric(2 * (logLik(full) - logLik(null))), df = 1, lower = FALSE))
 }
+m.full <- y ~ obs + cond + (1|subj)
+m.null <- y ~ cond + (1|subj)
+data <- sim_data_1RI(beta_obs = .1)
+data <- sim_data_int()
+REML = TRUE
+full <- lmer(m.full, data = data, REML = REML)
+null <- lmer(m.null, data = data, REML = REML)
+pchisq(as.numeric(2 * (logLik(full) - logLik(null))), df = 1, lower = FALSE)
+
 
 ##t-as-z
 test_TasZ.fixed <- function(data, m.full, REML = TRUE) {
@@ -119,13 +128,9 @@ test_PB.fixed <- function(mode, data, nsim.pb = 1000, cl = NULL) {
 
 
 #Parameter für Simulationen
-nsim <- 5
-beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
-models <- list(ysim ~ 1 + obs + cond + (1|Subj), ysim ~ 1 + obs + cond + Group + (1 + Group|Subj), ysim ~ 1 + obs + cond + Group1 + Group2 + (1 + Group1 + Group2|Subj))
-model <- vector(mode = "character", length = length(models)) #row names for data
-for(i in 1:length(models)) {
-  model[i] <- paste(models[[i]][2], models[[i]][1], models[[i]][3])
-}
+nsim <- 500
+beta_obs <- .2 #auf diesen fixed effect wird jeweils getestet
+models <- list(y ~ 1 + obs + cond + (1|subj), y ~ 1 + obs + cond + group + (1 + group|subj), y ~ 1 + obs + cond + group1 + group2 + (1 + group1 + group2|subj))
 
 #sapply
 plan("multisession", workers = detectCores())
@@ -136,93 +141,98 @@ nsim.pb <- 5
 
 ###LRT
 ##REML (nicht empfohlen)
-data_LRT.REML_1 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI(), models[[1]], update.formula(models[[1]],  ~ . - obs))))
+data_LRT.REML_1 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI(beta_obs = beta_obs), models[[1]], update.formula(models[[1]],  ~ . - obs))))
 colnames(data_LRT.REML_1) <- 1:nsim
-data_LRT.REML_2 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI.1RS(), models[[2]], update.formula(models[[2]],  ~ . - obs))))
+data_LRT.REML_2 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI.1RS(beta_obs = beta_obs), models[[2]], update.formula(models[[2]],  ~ . - obs))))
 colnames(data_LRT.REML_2) <- 1:nsim
-data_LRT.REML_3 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI.2RS(), models[[3]], update.formula(models[[3]],  ~ . - obs))))
+data_LRT.REML_3 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI.2RS(beta_obs = beta_obs), models[[3]], update.formula(models[[3]],  ~ . - obs))))
 colnames(data_LRT.REML_3) <- 1:nsim
 data_LRT.REML_long <- rbind(data_LRT.REML_1, data_LRT.REML_2, data_LRT.REML_3)
-data_LRT.REML_long <- as.data.frame(data_LRT.REML_long, row.names = model)
-data_LRT.REML_long <- gather(data_LRT.REML_long, sim, p.LRT.REML, 1:ncol(data_LRT.REML_long))
+data_LRT.REML_long <- as.data.frame(cbind(model = 1:length(models), data_LRT.REML_long))
+data_LRT.REML_long <- gather(data_LRT.REML_long, sim, p.LRT.REML, 2:ncol(data_LRT.REML_long))
 
 data_LRT.REML_long %>% 
-  group_by(models) %>% 
+  group_by(model) %>% 
   summarize(prop_LRT.REML = mean(p.LRT.REML <= .05))
 
 ##Daten für Plot:
 p_LRT.REML <- data_LRT.REML_long %>% 
-  group_by(ES) %>% 
+  group_by(models) %>% 
   summarize(k = sum(p.LRT.REML < .05) + 1.96^2/2,
             n = n() + 1.96^2,
             p = k/n,
             p_l = p - 1.96 * sqrt(p*(1-p)/n),
             p_u = p + 1.96 * sqrt(p*(1-p)/n)) %>% 
-  select(ES, p, p_l, p_u) %>% 
+  select(models, p, p_l, p_u) %>% 
   mutate(REML = 1,
          method = 1)
 
 ##ML
-data_LRT.ML <- t(sapply(ES, function(x) future <- future_replicate(nsim, test_lrtstat(sim_data_int(beta_obs = x), m.full, m.null, REML = FALSE))))
-colnames(data_LRT.ML) <- 1:nsim
-data_LRT.ML_long <- as.data.frame(cbind(ES, data_LRT.ML))
+data_LRT.ML_1 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI(beta_obs = beta_obs), models[[1]], update.formula(models[[1]],  ~ . - obs), REML = FALSE)))
+colnames(data_LRT.ML_1) <- 1:nsim
+data_LRT.ML_2 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI.1RS(beta_obs = beta_obs), models[[2]], update.formula(models[[2]],  ~ . - obs), REML = FALSE)))
+colnames(data_LRT.ML_2) <- 1:nsim
+data_LRT.ML_3 <- t(future_replicate(nsim, test_lrtstat(sim_data_1RI.2RS(beta_obs = beta_obs), models[[3]], update.formula(models[[3]],  ~ . - obs), REML = FALSE)))
+colnames(data_LRT.ML_3) <- 1:nsim
+data_LRT.ML_long <- rbind(data_LRT.ML_1, data_LRT.ML_2, data_LRT.ML_3)
+data_LRT.ML_long <- as.data.frame(cbind(model = 1:length(models), data_LRT.ML_long))
 data_LRT.ML_long <- gather(data_LRT.ML_long, sim, p.LRT.ML, 2:ncol(data_LRT.ML_long))
 
 data_LRT.ML_long %>% 
-  group_by(ES) %>% 
+  group_by(model) %>% 
   summarize(prop_LRT.ML = mean(p.LRT.ML <= .05))
 
 p_LRT.ML <- data_LRT.ML_long %>% 
-  group_by(ES) %>% 
+  group_by(models) %>% 
   summarize(k = sum(p.LRT.ML < .05) + 1.96^2/2,
             n = n() + 1.96^2,
             p = k/n,
             p_l = p - 1.96 * sqrt(p*(1-p)/n),
             p_u = p + 1.96 * sqrt(p*(1-p)/n)) %>% 
-  select(ES, p, p_l, p_u) %>% 
-  mutate(REML = 0,
+  select(models, p, p_l, p_u) %>% 
+  mutate(ML = 0,
          method = 1)
 
 ###t-as-z
 ##REML
-data_TasZ.REML <- t(sapply(ES, function(x) future_replicate(nsim, test_TasZ.fixed(sim_data_int(beta_obs = x), model))))
+data_TasZ.REML <- t(sapply(models, function(x) future_replicate(nsim, test_TasZ.fixed(sim_data_int(beta_obs = x), model))))
 colnames(data_TasZ.REML) <- 1:nsim
-data_TasZ.REML_long <- as.data.frame(cbind(ES, data_TasZ.REML))
+data_TasZ.REML_long <- as.data.frame(cbind(models, data_TasZ.REML))
 data_TasZ.REML_long <- gather(data_TasZ.REML_long, sim, p.TasZ.REML, 2:ncol(data_TasZ.REML_long))
 
 data_TasZ.REML_long %>% 
-  group_by(ES) %>% 
+  group_by(models) %>% 
   summarize(prop_TasZ.REML = mean(abs(p.TasZ.REML) >= 1.96))
 
 p_TasZ.REML <- data_TasZ.REML_long %>% 
-  group_by(ES) %>% 
+  group_by(models) %>% 
   summarize(k = sum(abs(p.TasZ.REML) >= 1.96) + 1.96^2/2,
             n = n() + 1.96^2,
             p = k/n,
             p_l = p - 1.96 * sqrt(p*(1-p)/n),
             p_u = p + 1.96 * sqrt(p*(1-p)/n)) %>% 
-  select(ES, p, p_l, p_u) %>% 
+  select(models, p, p_l, p_u) %>% 
   mutate(REML = 1, 
          method = 2)
 
 ##ML
-data_TasZ.ML <- t(sapply(ES, function(x) future_replicate(nsim, test_TasZ.fixed(sim_data_int(beta_obs = x), model, REML = FALSE))))
+data_TasZ.ML <- t(sapply(models, function(x) future_replicate(nsim, test_TasZ.fixed(sim_data_int(beta_obs = x), model, REML = FALSE))))
 colnames(data_TasZ.ML) <- 1:nsim
-data_TasZ.ML_long <- as.data.frame(cbind(ES, data_TasZ.ML))
+data_TasZ.ML_long <- as.data.frame(cbind(models, data_TasZ.ML))
 data_TasZ.ML_long <- gather(data_TasZ.ML_long, sim, p.TasZ.ML, 2:ncol(data_TasZ.ML_long))
 
 data_TasZ.ML_long %>% 
-  group_by(ES) %>% 
+  group_by(models) %>% 
   summarize(prop_TasZ.ML = mean(abs(p.TasZ.ML) >= 1.96))
 
 p_TasZ.ML <- data_TasZ.ML_long %>% 
-  group_by(ES) %>% 
+  group_by(models) %>% 
   summarize(k = sum(abs(p.TasZ.ML) >= 1.96) + 1.96^2/2,
             n = n() + 1.96^2,
             p = k/n,
             p_l = p - 1.96 * sqrt(p*(1-p)/n),
             p_u = p + 1.96 * sqrt(p*(1-p)/n)) %>% 
-  select(ES, p, p_l, p_u) %>% 
+  select(models, p, p_l, p_u) %>% 
   mutate(REML = 0,
          method = 2)
 
@@ -232,69 +242,69 @@ p_TasZ.ML <- data_TasZ.ML_long %>%
 ##Sattherthwaire, REML
 ddf <- "Satterthwaite"
 REML <- TRUE
-data_SW.REML <- t(sapply(ES, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = REML, ddf = ddf))))
+data_SW.REML <- t(sapply(models, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = REML, ddf = ddf))))
 colnames(data_SW.REML) <- 1:nsim
-data_SW.REML_long <- as.data.frame(cbind(ES, data_SW.REML))
+data_SW.REML_long <- as.data.frame(cbind(models, data_SW.REML))
 data_SW.REML_long <- gather(data_SW.REML_long, sim, p.SW.REML, 2:ncol(data_SW.REML_long))
 
 data_SW.REML_long %>% 
-  group_by(ES) %>% 
+  group_by(models) %>% 
   summarize(prop_SW.REML = mean(p.SW.REML <= .05))
 
 p_SW.REML <- data_SW.REML_long %>% 
-  group_by(ES) %>% 
+  group_by(models) %>% 
   summarize(k = sum(p.SW.REML < .05) + 1.96^2/2,
             n = n() + 1.96^2,
             p = k/n,
             p_l = p - 1.96 * sqrt(p*(1-p)/n),
             p_u = p + 1.96 * sqrt(p*(1-p)/n)) %>% 
-  select(ES, p, p_l, p_u) %>% 
+  select(models, p, p_l, p_u) %>% 
   mutate(REML = 1,
          method = 3)
 
 ##Kenward-Roger, REML
 ddf <- "Kenward-Roger"
 REML <- TRUE
-data_KR.REML <- t(sapply(ES, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = TRUE, ddf = "Satterthwaite"))))
+data_KR.REML <- t(sapply(models, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = TRUE, ddf = "Satterthwaite"))))
 colnames(data_KR.REML) <- 1:nsim
-data_KR.REML_long <- as.data.frame(cbind(ES, data_KR.REML))
+data_KR.REML_long <- as.data.frame(cbind(models, data_KR.REML))
 data_KR.REML_long <- gather(data_KR.REML_long, sim, p.KR.REML, 2:ncol(data_KR.REML_long))
 
 data_KR.REML_long %>% 
-  group_by(ES) %>% 
+  group_by(models) %>% 
   summarize(prop_KR.REML = mean(p.KR.REML <= .05))
 
 p_KR.REML <- data_KR.REML_long %>% 
-  group_by(ES) %>% 
+  group_by(models) %>% 
   summarize(k = sum(p.KR.REML < .05) + 1.96^2/2,
             n = n() + 1.96^2,
             p = k/n,
             p_l = p - 1.96 * sqrt(p*(1-p)/n),
             p_u = p + 1.96 * sqrt(p*(1-p)/n)) %>% 
-  select(ES, p, p_l, p_u) %>% 
+  select(models, p, p_l, p_u) %>% 
   mutate(REML = 1, 
          method = 4)
 
 ##Sattherthwaire, ML
 ddf <- "Satterthwaite"
 REML <- FALSE
-data_SW.ML <- t(sapply(ES, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = TRUE, ddf = "Satterthwaite"))))
+data_SW.ML <- t(sapply(models, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = TRUE, ddf = "Satterthwaite"))))
 colnames(data_SW.ML) <- 1:nsim
-data_SW.ML_long <- as.data.frame(cbind(ES, data_SW.ML))
+data_SW.ML_long <- as.data.frame(cbind(models, data_SW.ML))
 data_SW.ML_long <- gather(data_SW.ML_long, sim, p.SW.ML, 2:ncol(data_SW.ML_long))
 
 data_SW.ML_long %>% 
-  group_by(ES) %>% 
+  group_by(models) %>% 
   summarize(prop_SW.ML = mean(p.SW.ML <= .05))
 
 p_SW.ML <- data_SW.ML_long %>% 
-  group_by(ES) %>% 
+  group_by(models) %>% 
   summarize(k = sum(p.SW.ML < .05) + 1.96^2/2,
             n = n() + 1.96^2,
             p = k/n,
             p_l = p - 1.96 * sqrt(p*(1-p)/n),
             p_u = p + 1.96 * sqrt(p*(1-p)/n)) %>% 
-  select(ES, p, p_l, p_u) %>% 
+  select(models, p, p_l, p_u) %>% 
   mutate(REML = 0,
          method = 3)
 
@@ -307,23 +317,23 @@ p_SW.ML <- data_SW.ML_long %>%
 nc <- detectCores() # number of cores
 cl <- makeCluster(rep("localhost", nc)) # make cluster
 
-data_alpha.nB <- t(sapply(ES, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = sim_data_int(beta_obs = x), nsim.pb = nsim.pb, cl = cl))))
+data_alpha.nB <- t(sapply(models, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = sim_data_int(beta_obs = x), nsim.pb = nsim.pb, cl = cl))))
 colnames(data_alpha.nB) <- 1:nsim
-data_alpha.nB_long <- as.data.frame(cbind(ES, data_alpha.nB))
+data_alpha.nB_long <- as.data.frame(cbind(models, data_alpha.nB))
 data_alpha.nB_long <- gather(data_alpha.nB_long, sim, p.PB, 2:ncol(data_alpha.nB_long))
 
 data_alpha.nB_long %>% 
-  group_by(ES) %>% 
+  group_by(models) %>% 
   summarize(prop_PB = mean(p.PB <= .05))
 
 p_PB <- data_alpha.nB_long %>% 
-  group_by(ES) %>% 
+  group_by(models) %>% 
   summarize(k = sum(p.PB < .05) + 1.96^2/2,
             n = n() + 1.96^2,
             p = k/n,
             p_l = p - 1.96 * sqrt(p*(1-p)/n),
             p_u = p + 1.96 * sqrt(p*(1-p)/n)) %>% 
-  select(ES, p, p_l, p_u) %>% 
+  select(models, p, p_l, p_u) %>% 
   mutate(REML = 0,
          method = 5)
 
@@ -398,5 +408,5 @@ library(designr)
 
 
 
-summary(lmer(ysim ~ 1 + obs + cond + Group + (1 + Group| Subj), data = dat))
+summary(lmer(y ~ 1 + obs + cond + group + (1 + group| subj), data = dat))
 
