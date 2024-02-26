@@ -12,13 +12,19 @@
 #lmm <- lmer(model, sim_data_int())
 #pvals.fnc(lmm)
 
-####Effektstärke (power?)
-
+####Modellkomplexität
 
 ##TODO: KR für REML?, PB für REML?
 ##      funktionen aus anderem skript importieren?
 ##      ES für ungerade zahlen
 ##      future_sapply vs future_replicate testen
+
+#Modelle: 
+#1 random intercept                       y = b0 + b1*obs + b2*cond + (1|subj) + epsilon
+#1 random intercept + 1 random slope      y = b0 + b1*obs + b2*cond + b3 * group1 + (1 + group1|subj) + epsilon
+#1 random intercepts + 2 random slopes    y = b0 + b1*obs + b2*cond + b3 * group1 + b4 * group2 + (1 + group1 + group2|subj) + epsilon
+#nested (komplexer?)                      y = b0 + b1*obs + b2*cond + (1|subj) + (1|subj:group) + epsilon
+
 
 library(future.apply)
 library(parallel)
