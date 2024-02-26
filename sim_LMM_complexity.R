@@ -34,6 +34,7 @@ library(lme4)
 library(lmerTest)
 library(pbkrtest)
 library(afex)
+library(MASS)
 
 ##Datengeneration
 #einfaches Modell nur mit random intercept
@@ -177,6 +178,18 @@ colnames(data_LRT.ML_3) <- 1:nsim
 data_LRT.ML_long <- rbind(data_LRT.ML_1, data_LRT.ML_2, data_LRT.ML_3)
 data_LRT.ML_long <- as.data.frame(cbind(model = 1:length(models), data_LRT.ML_long))
 data_LRT.ML_long <- gather(data_LRT.ML_long, sim, p.LRT.ML, 2:ncol(data_LRT.ML_long))
+
+data_LRT.ML_1 <- t(future_replicate(nsim, test_lrtstat(sim_data_int(beta_obs = beta_obs), models[[1]], update.formula(models[[1]],  ~ . - obs), REML = FALSE)))
+colnames(data_LRT.ML_1) <- 1:nsim
+data_LRT.ML_2 <- t(future_replicate(nsim, test_lrtstat(sim_data_int(beta_obs = beta_obs), models[[2]], update.formula(models[[2]],  ~ . - obs), REML = FALSE)))
+colnames(data_LRT.ML_2) <- 1:nsim
+data_LRT.ML_3 <- t(future_replicate(nsim, test_lrtstat(sim_data_int(beta_obs = beta_obs), models[[3]], update.formula(models[[3]],  ~ . - obs), REML = FALSE)))
+colnames(data_LRT.ML_3) <- 1:nsim
+data_LRT.ML_long <- rbind(data_LRT.ML_1, data_LRT.ML_2, data_LRT.ML_3)
+data_LRT.ML_long <- as.data.frame(cbind(model = 1:length(models), data_LRT.ML_long))
+data_LRT.ML_long <- gather(data_LRT.ML_long, sim, p.LRT.ML, 2:ncol(data_LRT.ML_long))
+
+mean(data_LRT.ML_1 < .05)
 
 data_LRT.ML_long %>% 
   group_by(model) %>% 

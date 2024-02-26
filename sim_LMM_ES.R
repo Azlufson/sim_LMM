@@ -53,7 +53,7 @@ sim_data_int <- function(n.subj = 10, n.obs = 6, b0 = 10, beta_obs = 0, beta_con
 test_lrtstat <- function(data, m.full, m.null, REML = TRUE) {
   full <- lmer(m.full, data = data, REML = REML)
   null <- lmer(m.null, data = data, REML = REML)
-  return(pchisq(as.numeric(2 * (logLik(full) - logLik(null))), lower = FALSE))
+  return(pchisq(as.numeric(2 * (logLik(full) - logLik(null))), df = 1, lower = FALSE))
 }
 
 ##t-as-z
@@ -86,9 +86,9 @@ m.null <- y ~ cond + (1|subj)
 model <- y ~ obs + cond + (1|subj)
 
 #Parameter für Simulationen
-nsim <- 5
+nsim <- 500
 beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
-ES <- seq(0, .2)
+ES <- seq(0, .5, .1)
 
 #sapply
 plan("multisession", workers = detectCores())
