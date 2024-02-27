@@ -34,14 +34,13 @@ library(afex)
 #einfaches Modell nur mit random intercept
 # y = b0 + beta_cond * cond + (1|group)
 #n.subj und n.obs müssen gerade sein
-sim_data_int <- function(n.group = 4, n.cond = 4, b0 = 10, beta_cond = 0, sd.int_group = 6, sd_eps = 2) {
-  cond <- rep(rep(c(0,1), n.group), each = n.cond)
-  group <- rep(c(0,1), each = n.cond * n.group)
+sim_data_int <- function(n.subj = 10, n.group = 4, n.cond = 4, b0 = 10, beta_cond = 0, sd.int_group = 6, sd_eps = 2) {
+  cond <- rep(rep(c(0,1), n.group * n.subj), each = n.cond)
+  group <- rep(c(0,1), each = n.cond * n.group * n.subj)
   group_int <- rep(rnorm(2, 0, sd.int_group), each = n.cond * n.group)
   y <- b0 + beta_cond * cond + group_int + rnorm(length(group), 0, sd_eps)
   return(data.frame(cond, group, y, group_int))
 }
-
 
 ##Daten unbalanciert machen
 unbalance <- function(data, p1, p2) {
@@ -107,8 +106,8 @@ colnames(grid) <- c("p1", "p2")
 plan("multisession", workers = detectCores())
 
 #Parameter für parametric bootstrap
-nsim.mixed <- 1000 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim.pb)
-nsim.pb <- 1000
+nsim.mixed <- 500 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim.pb)
+nsim.pb <- 500
 
 ###LRT
 ##REML (nicht empfohlen)

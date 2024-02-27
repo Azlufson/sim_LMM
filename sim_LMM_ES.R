@@ -86,16 +86,16 @@ m.null <- y ~ cond + (1|subj)
 model <- y ~ obs + cond + (1|subj)
 
 #Parameter für Simulationen
-nsim <- 500
+nsim <- 5
 beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
 ES <- seq(0, .5, .1)
 
-#sapply
+#future_replicate
 plan("multisession", workers = detectCores())
 
 #Parameter für parametric bootstrap
 nsim.mixed <- 5 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim.pb)
-nsim.pb <- 5
+nsim.pb <- 500
 
 ###LRT
 ##REML (nicht empfohlen)
@@ -287,28 +287,25 @@ p_PB <- data_alpha.nB_long %>%
 
 ### Grafiken der Ergebnisse
 data_alpha.n <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML, p_PB)
-data_alpha.n$n.obs <- as.factor(data_alpha.n$n.obs)
-data_alpha.n$n.subj <- as.factor(data_alpha.n$n.subj)
+data_alpha.n$ES <- as.factor(data_alpha.n$ES)
 data_alpha.n$REML <- factor(data_alpha.n$REML, labels = c("ML", "REML"))
 data_alpha.n$method <- factor(data_alpha.n$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger", "Parametric Bootstrap"))
 
 #alle Methoden
-ggplot(data_alpha.n, aes(x = as.factor(n.obs), y = p, col = REML, shape = method)) + 
+ggplot(data_alpha.n, aes(x = ES, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
-  facet_wrap(~n.subj) +
-  ylim(0, .12)
+  ylim(0, 1)
 
 #nur SW und KR
 data_alpha.n %>% 
   filter(method %in% c("Satterthwaite", "Kenward-Roger")) %>% 
-  ggplot(aes(x = as.factor(n.obs), y = p, col = REML, shape = method)) + 
+  ggplot(aes(x = ES, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
-  facet_wrap(~n.subj, nrow = 1) +
-  ylim(0, .1)
+  ylim(0, 1)
 
 #nur SW
 data_alpha.n %>% 
@@ -318,7 +315,7 @@ data_alpha.n %>%
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
   facet_wrap(~n.subj, nrow = 1) +
-  ylim(0, .1)
+  ylim(0, 1)
 
 #nur ML
 data_alpha.n %>% 
@@ -328,7 +325,7 @@ data_alpha.n %>%
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
   facet_wrap(~n.subj, nrow = 1) +
-  ylim(0, .12)
+  ylim(0, 1)
 
 #nur REML
 data_alpha.n %>% 
@@ -338,7 +335,7 @@ data_alpha.n %>%
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
   facet_wrap(~n.subj, nrow = 1) +
-  ylim(0, .1)
+  ylim(0, 1)
 
 #nur t as z
 data_alpha.n %>% 
@@ -348,4 +345,4 @@ data_alpha.n %>%
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
   facet_wrap(~n.subj, nrow = 1) +
-  ylim(0, .12)
+  ylim(0, 1)

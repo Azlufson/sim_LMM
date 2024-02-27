@@ -287,7 +287,7 @@ data_alpha.n$REML <- factor(data_alpha.n$REML, labels = c("ML", "REML"))
 data_alpha.n$method <- factor(data_alpha.n$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger", "Parametric Bootstrap"))
 
 #alle Methoden
-ggplot(data_alpha.n, aes(x = as.factor(n.obs), y = p, col = REML, shape = method)) + 
+ggplot(data_alpha.n, aes(x = n.obs, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
@@ -297,7 +297,7 @@ ggplot(data_alpha.n, aes(x = as.factor(n.obs), y = p, col = REML, shape = method
 #nur SW und KR
 data_alpha.n %>% 
   filter(method %in% c("Satterthwaite", "Kenward-Roger")) %>% 
-  ggplot(aes(x = as.factor(n.obs), y = p, col = REML, shape = method)) + 
+  ggplot(aes(x = n.obs, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
@@ -307,7 +307,7 @@ data_alpha.n %>%
 #nur SW
 data_alpha.n %>% 
   filter(method %in% c("Satterthwaite")) %>% 
-  ggplot(aes(x = as.factor(n.obs), y = p, col = REML, shape = method)) + 
+  ggplot(aes(x = n.obs, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
@@ -317,7 +317,7 @@ data_alpha.n %>%
 #nur ML
 data_alpha.n %>% 
   filter(REML == "ML") %>% 
-  ggplot(aes(x = as.factor(n.obs), y = p, col = method)) + 
+  ggplot(aes(x = n.obs, y = p, col = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
@@ -327,7 +327,7 @@ data_alpha.n %>%
 #nur REML
 data_alpha.n %>% 
   filter(REML == "REML") %>% 
-  ggplot(aes(x = as.factor(n.obs), y = p, col = method)) + 
+  ggplot(aes(x = n.obs, y = p, col = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
@@ -337,7 +337,7 @@ data_alpha.n %>%
 #nur t as z
 data_alpha.n %>% 
   filter(method == "t-as-z") %>% 
-  ggplot(aes(x = as.factor(n.obs), y = p, col = REML)) + 
+  ggplot(aes(x = n.obs, y = p, col = REML)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
