@@ -213,7 +213,7 @@ p_SW.REML <- data_SW.REML_long %>%
 ##Kenward-Roger, REML
 ddf <- "Kenward-Roger"
 REML <- TRUE
-data_KR.REML <- t(sapply(ES, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = TRUE, ddf = "Satterthwaite"))))
+data_KR.REML <- t(sapply(ES, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = TRUE, ddf = ddf))))
 colnames(data_KR.REML) <- 1:nsim
 data_KR.REML_long <- as.data.frame(cbind(ES, data_KR.REML))
 data_KR.REML_long <- gather(data_KR.REML_long, sim, p.KR.REML, 2:ncol(data_KR.REML_long))
@@ -236,7 +236,7 @@ p_KR.REML <- data_KR.REML_long %>%
 ##Sattherthwaire, ML
 ddf <- "Satterthwaite"
 REML <- FALSE
-data_SW.ML <- t(sapply(ES, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = TRUE, ddf = "Satterthwaite"))))
+data_SW.ML <- t(sapply(ES, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = TRUE, ddf = ddf))))
 colnames(data_SW.ML) <- 1:nsim
 data_SW.ML_long <- as.data.frame(cbind(ES, data_SW.ML))
 data_SW.ML_long <- gather(data_SW.ML_long, sim, p.SW.ML, 2:ncol(data_SW.ML_long))

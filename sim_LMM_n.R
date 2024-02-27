@@ -210,7 +210,7 @@ p_SW.REML <- data_SW.REML_long %>%
 ##Kenward-Roger, REML
 ddf <- "Kenward-Roger"
 REML <- TRUE
-data_KR.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), model, REML = TRUE, ddf = "Satterthwaite")), future.seed = TRUE))
+data_KR.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), model, REML = TRUE, ddf = ddf)), future.seed = TRUE))
 data_KR.REML_long <- cbind(grid, data_KR.REML)
 data_KR.REML_long <- gather(data_KR.REML_long, sim, p.KR.REML, (ncol(grid)+1):ncol(data_KR.REML_long))
 
@@ -232,7 +232,7 @@ p_KR.REML <- data_KR.REML_long %>%
 ##Sattherthwaire, ML
 ddf <- "Satterthwaite"
 REML <- FALSE
-data_SW.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), model, REML = TRUE, ddf = "Satterthwaite")), future.seed = TRUE))
+data_SW.ML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), model, REML = TRUE, ddf = ddf)), future.seed = TRUE))
 data_SW.ML_long <- cbind(grid, data_SW.ML)
 data_SW.ML_long <- gather(data_SW.ML_long, sim, p.SW.ML, (ncol(grid)+1):ncol(data_SW.ML_long))
 

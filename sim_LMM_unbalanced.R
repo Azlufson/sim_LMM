@@ -51,15 +51,6 @@ unbalance <- function(data, p1, p2) {
   return(data)
 }
 
-##LRT:
-#alt (keine modellspezifikation möglich):
-# test_lrtstat.fixed <- function(n.subj = 6, n.obs = 10, beta_obs = 0, REML = TRUE) {
-#   data <- sim_data_int(n.subj = ES = n.obs, b0 = 10, beta_obs = beta_obs, beta_cond = 5, sd.int_subj = 5, sd_eps = 1)
-#   full <- lmer(y ~ obs + cond + (1|subj), data = data, REML = REML)
-#   null <- lmer(y ~ cond + (1|subj), data = data, REML = REML)
-#   return(pchisq(as.numeric(2 * (logLik(full) - logLik(null))), lower = FALSE))
-# }
-
 test_lrtstat <- function(data, m.full, m.null, REML = TRUE) {
   full <- lmer(m.full, data = data, REML = REML)
   null <- lmer(m.null, data = data, REML = REML)
