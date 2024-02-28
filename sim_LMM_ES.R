@@ -32,7 +32,7 @@ library(afex)
 #einfaches Modell nur mit random intercept
 # y = b0 + b1*obs + b2*cond + (1|subj) + epsilon
 #n.subj und n.obs müssen gerade sein
-sim_data_int <- function(n.subj = 10, n.obs = 6, b0 = 10, beta_obs = 0, beta_cond = 5, sd.int_subj = 6, sd_eps = 2) {
+sim_data_int <- function(n.subj = 16, n.obs = 16, b0 = 10, beta_obs = 0, beta_cond = 5, sd.int_subj = 6, sd_eps = 2) {
   subj <- rep(1:n.subj, each = n.obs)
   obs <- rep(rep(c(0,1), each = n.obs/2), n.subj)
   cond <- rep(c(0,1), n.subj*n.obs/2)
@@ -86,16 +86,16 @@ m.null <- y ~ cond + (1|subj)
 model <- y ~ obs + cond + (1|subj)
 
 #Parameter für Simulationen
-nsim <- 5
+nsim <- 5000
 beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
-ES <- seq(0, .5, .1)
+ES <- seq(0, 2.5, .5)
 
 #future_replicate
 plan("multisession", workers = detectCores())
 
 #Parameter für parametric bootstrap
 nsim.mixed <- 5 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim.pb)
-nsim.pb <- 500
+nsim.pb <- 5
 
 ###LRT
 ##REML (nicht empfohlen)
@@ -213,7 +213,7 @@ p_SW.REML <- data_SW.REML_long %>%
 ##Kenward-Roger, REML
 ddf <- "Kenward-Roger"
 REML <- TRUE
-data_KR.REML <- t(sapply(ES, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = TRUE, ddf = ddf))))
+data_KR.REML <- t(sapply(ES, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = TRUE, ddf = "Satterthwaite"))))
 colnames(data_KR.REML) <- 1:nsim
 data_KR.REML_long <- as.data.frame(cbind(ES, data_KR.REML))
 data_KR.REML_long <- gather(data_KR.REML_long, sim, p.KR.REML, 2:ncol(data_KR.REML_long))
@@ -236,7 +236,7 @@ p_KR.REML <- data_KR.REML_long %>%
 ##Sattherthwaire, ML
 ddf <- "Satterthwaite"
 REML <- FALSE
-data_SW.ML <- t(sapply(ES, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = TRUE, ddf = ddf))))
+data_SW.ML <- t(sapply(ES, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_obs = x), model, REML = TRUE, ddf = "Satterthwaite"))))
 colnames(data_SW.ML) <- 1:nsim
 data_SW.ML_long <- as.data.frame(cbind(ES, data_SW.ML))
 data_SW.ML_long <- gather(data_SW.ML_long, sim, p.SW.ML, 2:ncol(data_SW.ML_long))
@@ -265,16 +265,16 @@ p_SW.ML <- data_SW.ML_long %>%
 nc <- detectCores() # number of cores
 cl <- makeCluster(rep("localhost", nc)) # make cluster
 
-data_alpha.nB <- t(sapply(ES, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = sim_data_int(beta_obs = x), nsim.pb = nsim.pb, cl = cl))))
-colnames(data_alpha.nB) <- 1:nsim
-data_alpha.nB_long <- as.data.frame(cbind(ES, data_alpha.nB))
-data_alpha.nB_long <- gather(data_alpha.nB_long, sim, p.PB, 2:ncol(data_alpha.nB_long))
+data_PB <- t(sapply(ES, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = sim_data_int(beta_obs = x), nsim.pb = nsim.pb, cl = cl))))
+colnames(data_PB) <- 1:nsim.mixed
+data_PB_long <- as.data.frame(cbind(ES, data_PB))
+data_PB_long <- gather(data_PB_long, sim, p.PB, 2:ncol(data_PB_long))
 
-data_alpha.nB_long %>% 
+data_PB_long %>% 
   group_by(ES) %>% 
   summarize(prop_PB = mean(p.PB <= .05))
 
-p_PB <- data_alpha.nB_long %>% 
+p_PB <- data_PB_long %>% 
   group_by(ES) %>% 
   summarize(k = sum(p.PB < .05) + 1.96^2/2,
             n = n() + 1.96^2,
@@ -286,63 +286,59 @@ p_PB <- data_alpha.nB_long %>%
          method = 5)
 
 ### Grafiken der Ergebnisse
-data_alpha.n <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML, p_PB)
-data_alpha.n$ES <- as.factor(data_alpha.n$ES)
-data_alpha.n$REML <- factor(data_alpha.n$REML, labels = c("ML", "REML"))
-data_alpha.n$method <- factor(data_alpha.n$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger", "Parametric Bootstrap"))
+data_ES <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML, p_PB)
+data_ES$ES <- as.factor(data_ES$ES)
+data_ES$REML <- factor(data_ES$REML, labels = c("ML", "REML"))
+data_ES$method <- factor(data_ES$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger", "Parametric Bootstrap"))
 
 #alle Methoden
-ggplot(data_alpha.n, aes(x = ES, y = p, col = REML, shape = method)) + 
+ggplot(data_ES, aes(x = ES, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
-  geom_hline(yintercept = .05) +
+  geom_hline(yintercept = .8) +
   ylim(0, 1)
 
 #nur SW und KR
-data_alpha.n %>% 
+data_ES %>% 
   filter(method %in% c("Satterthwaite", "Kenward-Roger")) %>% 
   ggplot(aes(x = ES, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
-  geom_hline(yintercept = .05) +
+  geom_hline(yintercept = .8) +
   ylim(0, 1)
 
 #nur SW
-data_alpha.n %>% 
+data_ES %>% 
   filter(method %in% c("Satterthwaite")) %>% 
-  ggplot(aes(x = as.factor(n.obs), y = p, col = REML, shape = method)) + 
+  ggplot(aes(x = ES, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
-  geom_hline(yintercept = .05) +
-  facet_wrap(~n.subj, nrow = 1) +
+  geom_hline(yintercept = .8) +
   ylim(0, 1)
 
 #nur ML
-data_alpha.n %>% 
+data_ES %>% 
   filter(REML == "ML") %>% 
-  ggplot(aes(x = as.factor(n.obs), y = p, col = method)) + 
+  ggplot(aes(x = ES, y = p, col = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
-  geom_hline(yintercept = .05) +
-  facet_wrap(~n.subj, nrow = 1) +
+  geom_hline(yintercept = .8) +
   ylim(0, 1)
 
 #nur REML
-data_alpha.n %>% 
+data_ES %>% 
   filter(REML == "REML") %>% 
-  ggplot(aes(x = as.factor(n.obs), y = p, col = method)) + 
+  ggplot(aes(x = ES, y = p, col = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
-  geom_hline(yintercept = .05) +
-  facet_wrap(~n.subj, nrow = 1) +
+  geom_hline(yintercept = .8) +
   ylim(0, 1)
 
 #nur t as z
-data_alpha.n %>% 
+data_ES %>% 
   filter(method == "t-as-z") %>% 
-  ggplot(aes(x = as.factor(n.obs), y = p, col = REML)) + 
+  ggplot(aes(x = ES, y = p, col = REML)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
-  geom_hline(yintercept = .05) +
-  facet_wrap(~n.subj, nrow = 1) +
+  geom_hline(yintercept = .8) +
   ylim(0, 1)

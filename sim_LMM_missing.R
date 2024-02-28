@@ -12,10 +12,7 @@
 #lmm <- lmer(model, sim_data_int())
 #pvals.fnc(lmm)
 
-####unbalanced designs
-
-#bei unbalaciertem design entstehen viele boundary probleme
-
+####missing values
 
 ##TODO: KR für REML?, PB für REML?
 ##      funktionen aus anderem skript importieren?
@@ -33,7 +30,7 @@ library(afex)
 
 ##Datengeneration
 #einfaches Modell nur mit random intercept
-# y = b0 + beta_cond * cond + (1|group)
+# y = b0 + b1*obs + b2*cond + (1|subj) + epsilon
 #n.subj und n.obs müssen gerade sein
 sim_data_int <- function(n.subj = 10, n.obs = 6, b0 = 10, beta_obs = 0, beta_cond = 5, sd.int_subj = 6, sd_eps = 2) {
   subj <- rep(1:n.subj, each = n.obs)
@@ -84,7 +81,7 @@ m.null <- y ~ cond + (1|subj)
 model <- y ~ obs + cond + (1|subj)
 
 #Parameter für Simulationen
-nsim <- 5
+nsim <- 5000
 beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
 p.missing <- c(.1, .3, .5)
 
@@ -262,16 +259,16 @@ p_SW.ML <- data_SW.ML_long %>%
 nc <- detectCores() # number of cores
 cl <- makeCluster(rep("localhost", nc)) # make cluster
 
-data_alpha.nB <- t(sapply(p.missing, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = missing.val(sim_data_int(), p = x), nsim.pb = nsim.pb, cl = cl))))
-colnames(data_alpha.nB) <- 1:nsim.mixed
-data_alpha.nB_long <- as.data.frame(cbind(p.missing, data_alpha.nB))
-data_alpha.nB_long <- gather(data_alpha.nB_long, sim, p.PB, 2:ncol(data_alpha.nB_long))
+data_PB <- t(sapply(p.missing, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = missing.val(sim_data_int(), p = x), nsim.pb = nsim.pb, cl = cl))))
+colnames(data_PB) <- 1:nsim.mixed
+data_PB_long <- as.data.frame(cbind(p.missing, data_PB))
+data_PB_long <- gather(data_PB_long, sim, p.PB, 2:ncol(data_PB_long))
 
-data_alpha.nB_long %>% 
+data_PB_long %>% 
   group_by(p.missing) %>% 
   summarize(prop_PB = mean(p.PB <= .05))
 
-p_PB <- data_alpha.nB_long %>% 
+p_PB <- data_PB_long %>% 
   group_by(p.missing) %>% 
   summarize(k = sum(p.PB < .05) + 1.96^2/2,
             n = n() + 1.96^2,
@@ -283,66 +280,59 @@ p_PB <- data_alpha.nB_long %>%
          method = 5)
 
 ### Grafiken der Ergebnisse
-data_alpha.n <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML, p_PB)
-data_alpha.n$p1 <- as.factor(data_alpha.n$p1)
-data_alpha.n$p2 <- as.factor(data_alpha.n$p2)
-data_alpha.n$REML <- factor(data_alpha.n$REML, labels = c("ML", "REML"))
-data_alpha.n$method <- factor(data_alpha.n$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger", "Parametric Bootstrap"))
+data_missing <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML, p_PB)
+data_missing$p.missing <- as.factor(data_missing$p.missing)
+data_missing$REML <- factor(data_missing$REML, labels = c("ML", "REML"))
+data_missing$method <- factor(data_missing$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger", "Parametric Bootstrap"))
 
 #alle Methoden
-ggplot(data_alpha.n, aes(x = p1, y = p, col = REML, shape = method)) + 
+ggplot(data_missing, aes(x = p.missing, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
-  facet_wrap(~p2) +
   ylim(0, .12)
 
 #nur SW und KR
-data_alpha.n %>% 
+data_missing %>% 
   filter(method %in% c("Satterthwaite", "Kenward-Roger")) %>% 
-  ggplot(aes(x = p1, y = p, col = REML, shape = method)) + 
+  ggplot(aes(x = p.missing, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
-  facet_wrap(~p2, nrow = 1) +
   ylim(0, .1)
 
 #nur SW
-data_alpha.n %>% 
+data_missing %>% 
   filter(method %in% c("Satterthwaite")) %>% 
-  ggplot(aes(x = p1, y = p, col = REML, shape = method)) + 
+  ggplot(aes(x = p.missing, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
-  facet_wrap(~p2, nrow = 1) +
   ylim(0, .1)
 
 #nur ML
-data_alpha.n %>% 
+data_missing %>% 
   filter(REML == "ML") %>% 
-  ggplot(aes(x = p1, y = p, col = method)) + 
+  ggplot(aes(x = p.missing, y = p, col = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
-  facet_wrap(~p2, nrow = 1) +
   ylim(0, .12)
 
 #nur REML
-data_alpha.n %>% 
+data_missing %>% 
   filter(REML == "REML") %>% 
-  ggplot(aes(x = as.factor(n.obs), y = p, col = method)) + 
+  ggplot(aes(x = p.missing, y = p, col = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
-  facet_wrap(~n.subj, nrow = 1) +
   ylim(0, .1)
 
 #nur t as z
-data_alpha.n %>% 
+data_missing %>% 
   filter(method == "t-as-z") %>% 
-  ggplot(aes(x = as.factor(n.obs), y = p, col = REML)) + 
+  ggplot(aes(x = p,missing, y = p, col = REML)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
-  facet_wrap(~n.subj, nrow = 1) +
   ylim(0, .12)

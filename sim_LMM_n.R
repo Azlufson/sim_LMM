@@ -14,7 +14,6 @@
 
 ####Stichprobengröße
 
-
 ##TODO: KR für REML?, PB für REML?
 ##      funktionen aus anderem skript importieren?
 ##      n.subj, n.obs für ungerade zahlen
@@ -85,7 +84,7 @@ m.null <- y ~ cond + (1|subj)
 model <- y ~ obs + cond + (1|subj)
 
 #Parameter für Simulationen
-nsim <- 1000
+nsim <- 2500
 beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
 n.subj <- c(4, 6, 10, 16)
 n.obs <- c(4, 6, 10, 16)
@@ -93,11 +92,11 @@ grid <- expand.grid(n.subj, n.obs)
 colnames(grid) <- c("n.subj", "n.obs")
 
 #future_apply
-plan("multisession", workers = detectCores())
+plan("multisession", workers = availableCores(), gc = TRUE)
 
 #Parameter für parametric bootstrap
-nsim.mixed <- 100 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim.pb)
-nsim.pb <- 500
+nsim.mixed <- 5 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim.pb)
+nsim.pb <- 5
 
 ###LRT
 ##REML (nicht empfohlen)
@@ -260,15 +259,15 @@ p_SW.ML <- data_SW.ML_long %>%
 (nc <- detectCores()) # number of cores
 cl <- makeCluster(rep("localhost", nc)) # make cluster
 
-data_alpha.nB <- t(apply(grid, 1, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = sim_data_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), nsim.pb = nsim.pb, cl = cl))))
-data_alpha.nB_long <- cbind(grid, data_alpha.nB)
-data_alpha.nB_long <- gather(data_alpha.nB_long, sim, p.PB, (ncol(grid)+1):ncol(data_alpha.nB_long))
+data_PB <- t(apply(grid, 1, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = sim_data_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), nsim.pb = nsim.pb, cl = cl))))
+data_PB_long <- cbind(grid, data_PB)
+data_PB_long <- gather(data_PB_long, sim, p.PB, (ncol(grid)+1):ncol(data_PB_long))
 
-data_alpha.nB_long %>% 
+data_PB_long %>% 
   group_by(n.subj, n.obs) %>% 
   summarize(prop_PB = mean(p.PB <= .05))
 
-p_PB <- data_alpha.nB_long %>% 
+p_PB <- data_PB_long %>% 
   group_by(n.subj, n.obs) %>% 
   summarize(k = sum(p.PB < .05) + 1.96^2/2,
             n = n() + 1.96^2,
@@ -280,22 +279,22 @@ p_PB <- data_alpha.nB_long %>%
          method = 5)
 
 ### Grafiken der Ergebnisse
-data_alpha.n <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML, p_PB)
-data_alpha.n$n.obs <- as.factor(data_alpha.n$n.obs)
-data_alpha.n$n.subj <- as.factor(data_alpha.n$n.subj)
-data_alpha.n$REML <- factor(data_alpha.n$REML, labels = c("ML", "REML"))
-data_alpha.n$method <- factor(data_alpha.n$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger", "Parametric Bootstrap"))
+data_n <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML, p_PB)
+data_n$n.obs <- as.factor(data_n$n.obs)
+data_n$n.subj <- as.factor(data_n$n.subj)
+data_n$REML <- factor(data_n$REML, labels = c("ML", "REML"))
+data_n$method <- factor(data_n$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger", "Parametric Bootstrap"))
 
 #alle Methoden
-ggplot(data_alpha.n, aes(x = n.obs, y = p, col = REML, shape = method)) + 
+ggplot(data_n, aes(x = n.obs, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
   facet_wrap(~n.subj) +
-  ylim(0, .12)
+  ylim(0, .2)
 
 #nur SW und KR
-data_alpha.n %>% 
+data_n %>% 
   filter(method %in% c("Satterthwaite", "Kenward-Roger")) %>% 
   ggplot(aes(x = n.obs, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
@@ -305,7 +304,7 @@ data_alpha.n %>%
   ylim(0, .1)
 
 #nur SW
-data_alpha.n %>% 
+data_n %>% 
   filter(method %in% c("Satterthwaite")) %>% 
   ggplot(aes(x = n.obs, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
@@ -315,7 +314,7 @@ data_alpha.n %>%
   ylim(0, .1)
 
 #nur ML
-data_alpha.n %>% 
+data_n %>% 
   filter(REML == "ML") %>% 
   ggplot(aes(x = n.obs, y = p, col = method)) + 
   geom_point(position = position_dodge(.6)) + 
@@ -325,7 +324,7 @@ data_alpha.n %>%
   ylim(0, .12)
 
 #nur REML
-data_alpha.n %>% 
+data_n %>% 
   filter(REML == "REML") %>% 
   ggplot(aes(x = n.obs, y = p, col = method)) + 
   geom_point(position = position_dodge(.6)) + 
@@ -335,7 +334,7 @@ data_alpha.n %>%
   ylim(0, .1)
 
 #nur t as z
-data_alpha.n %>% 
+data_n %>% 
   filter(method == "t-as-z") %>% 
   ggplot(aes(x = n.obs, y = p, col = REML)) + 
   geom_point(position = position_dodge(.6)) + 

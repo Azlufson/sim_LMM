@@ -17,7 +17,9 @@
 #bei unbalaciertem design entstehen viele boundary probleme
 
 
-##TODO: KR für REML?, PB für REML?
+##TODO: 
+##      fix sim_data_int()
+##      KR für REML?, PB für REML?
 ##      funktionen aus anderem skript importieren?
 ##      ES für ungerade zahlen
 ##      future_sapply vs future_replicate testen
@@ -87,7 +89,7 @@ m.null <- y ~ (1|group)
 model <- y ~ cond + (1|group)
 
 #Parameter für Simulationen
-nsim <- 10000
+nsim <- 5000
 beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
 p1 <- c(.3, .5, .7)
 p2 <- c(0, .5, .7)
@@ -97,8 +99,8 @@ colnames(grid) <- c("p1", "p2")
 plan("multisession", workers = detectCores())
 
 #Parameter für parametric bootstrap
-nsim.mixed <- 500 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim.pb)
-nsim.pb <- 500
+nsim.mixed <- 5 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim.pb)
+nsim.pb <- 5
 
 ###LRT
 ##REML (nicht empfohlen)
@@ -268,16 +270,16 @@ p_SW.ML <- data_SW.ML_long %>%
 nc <- detectCores() # number of cores
 cl <- makeCluster(rep("localhost", nc)) # make cluster
 
-data_alpha.nB <- t(apply(grid, 1, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = unbalance(sim_data_int(), p1 = x[1], p2 = x[2]), nsim.pb = nsim.pb, cl = cl))))
-colnames(data_alpha.nB) <- 1:nsim.mixed
-data_alpha.nB_long <- as.data.frame(cbind(grid, data_alpha.nB))
-data_alpha.nB_long <- gather(data_alpha.nB_long, sim, p.PB, 3:ncol(data_alpha.nB_long))
+data_PB <- t(apply(grid, 1, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = unbalance(sim_data_int(), p1 = x[1], p2 = x[2]), nsim.pb = nsim.pb, cl = cl))))
+colnames(data_PB) <- 1:nsim.mixed
+data_PB_long <- as.data.frame(cbind(grid, data_PB))
+data_PB_long <- gather(data_PB_long, sim, p.PB, 3:ncol(data_PB_long))
 
-data_alpha.nB_long %>% 
+data_PB_long %>% 
   group_by(p1, p2) %>% 
   summarize(prop_PB = mean(p.PB <= .05))
 
-p_PB <- data_alpha.nB_long %>% 
+p_PB <- data_PB_long %>% 
   group_by(p1, p2) %>% 
   summarize(k = sum(p.PB < .05) + 1.96^2/2,
             n = n() + 1.96^2,
@@ -289,14 +291,14 @@ p_PB <- data_alpha.nB_long %>%
          method = 5)
 
 ### Grafiken der Ergebnisse
-data_alpha.n <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML, p_PB)
-data_alpha.n$p1 <- as.factor(data_alpha.n$p1)
-data_alpha.n$p2 <- as.factor(data_alpha.n$p2)
-data_alpha.n$REML <- factor(data_alpha.n$REML, labels = c("ML", "REML"))
-data_alpha.n$method <- factor(data_alpha.n$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger", "Parametric Bootstrap"))
+data_unbalanced <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML, p_PB)
+data_unbalanced$p1 <- as.factor(data_unbalanced$p1)
+data_unbalanced$p2 <- as.factor(data_unbalanced$p2)
+data_unbalanced$REML <- factor(data_unbalanced$REML, labels = c("ML", "REML"))
+data_unbalanced$method <- factor(data_unbalanced$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger", "Parametric Bootstrap"))
 
 #alle Methoden
-ggplot(data_alpha.n, aes(x = p1, y = p, col = REML, shape = method)) + 
+ggplot(data_unbalanced, aes(x = p1, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
@@ -304,7 +306,7 @@ ggplot(data_alpha.n, aes(x = p1, y = p, col = REML, shape = method)) +
   ylim(0, .12)
 
 #nur SW und KR
-data_alpha.n %>% 
+data_unbalanced %>% 
   filter(method %in% c("Satterthwaite", "Kenward-Roger")) %>% 
   ggplot(aes(x = p1, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
@@ -314,7 +316,7 @@ data_alpha.n %>%
   ylim(0, .1)
 
 #nur SW
-data_alpha.n %>% 
+data_unbalanced %>% 
   filter(method %in% c("Satterthwaite")) %>% 
   ggplot(aes(x = p1, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
@@ -324,7 +326,7 @@ data_alpha.n %>%
   ylim(0, .1)
 
 #nur ML
-data_alpha.n %>% 
+data_unbalanced %>% 
   filter(REML == "ML") %>% 
   ggplot(aes(x = p1, y = p, col = method)) + 
   geom_point(position = position_dodge(.6)) + 
@@ -334,21 +336,21 @@ data_alpha.n %>%
   ylim(0, .12)
 
 #nur REML
-data_alpha.n %>% 
+data_unbalanced %>% 
   filter(REML == "REML") %>% 
-  ggplot(aes(x = as.factor(n.obs), y = p, col = method)) + 
+  ggplot(aes(x = p1, y = p, col = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
-  facet_wrap(~n.subj, nrow = 1) +
+  facet_wrap(~p2, nrow = 1) +
   ylim(0, .1)
 
 #nur t as z
-data_alpha.n %>% 
+data_unbalanced %>% 
   filter(method == "t-as-z") %>% 
-  ggplot(aes(x = as.factor(n.obs), y = p, col = REML)) + 
+  ggplot(aes(x = p1, y = p, col = REML)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
-  facet_wrap(~n.subj, nrow = 1) +
+  facet_wrap(~p2, nrow = 1) +
   ylim(0, .12)

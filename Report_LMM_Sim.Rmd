@@ -1,0 +1,91 @@
+---
+title: "Report_LMM_Sim"
+author: "Hermann Stigler"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+```
+
+
+## R Markdown
+Es wurden Simulationen durchgeführt, um die Rate an Typ-1-Fehlern sowie die Güte von verschiedenen Methoden zum Erhalt von p-Werten bei linearen gemischten Modellen unter unterschiedlichen Bedingungen zu überprüfen.
+Die erste angewendete Methode ist der Likelihood Ratio Test.
+Der nächste Ansatz ("t as z") verwendet die von lmer ausgegebenen t-Werte als z-Werte und gibt p-Werte aus $N(0, 1)$ aus.
+Eine weitere Möglichkeit ist die Approximation der Freiheitsgrade des Modells durch Satterthwaite(SW)- oder die Kenward-Roger(KR)-Approximation (Formeln suchen und einfügen).
+Letztlich wurden p-Werte auch über parametrisches Bootstrappen generiert.
+Alle Methoden wurden sowohl mit Maximum Likelihood- sowie Restricted Maximum Likelihood-Schätzung angewendet.
+
+# Fixed Effects
+
+## Stichprobengröße
+Es wurden Daten aus dem Modell $y = b1 * observation + b2 * condition + (1|subject)$ generiert und dabei  sowohl die Anzahl an Testobjekten (4, 6, 10, 16) sowie die Anzahl an Beobachtungen pro Testobjekt (4, 6, 10, 16) variiert.
+Für jede Kombination an Testobjekten und Beobachtungen wurden für jede Methode 2500 Datensätze simuliert. Aufgrund des höheren Rechnaufwands wurden für das parametrische Boostrappen nur 5 Datensätze mit jeweils 5 Bootstrap-Wiederholungen simuliert.
+
+```{r plot n, echo = FALSE, warning = FALSE}
+load("data_n_2500.RData")
+
+ggplot(data_n, aes(x = n.obs, y = p, col = REML, shape = method)) + 
+  geom_point(position = position_dodge(.6)) + 
+  geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
+  geom_hline(yintercept = .05) +
+  facet_wrap(~n.subj, nrow = 2, labeller = label_both) +
+  ylim(0, .2) +
+  ggtitle("Type 1 Error Rate by Number of Subjects And Number of Observations") +
+  ylab("Type 1 Error Rate") +
+  xlab("Number of Observations")
+```
+
+Es ist ersichtlich, dass mit zunehmendem Stichprobenumfang alle Methoden nahe an eine Rate von 5% für den Typ-1-Fehler kommen.
+Vor allem bei kleinen Stichproben ist der LRT mittels REML stark antikonservativ. Aber auch bei größeren Stichprobenumfängen weist diese Methode die größten Abweichungen vom 5%-Niveau auf.
+Der beste Ansatz scheinen die SW- und die KR-Approximation zu sein. Auch bei kleinen Stichprobenumfängen und wenigen Beobachtungen halten sie das Alpha-Niveau gut ein.
+LRT und "t-as-z" sind unter allen Bedingungen, vor allem aber bei geringen Stichproben, antikonservativ.
+Das parametrische Bootstrappen ist aufgrund der geringen Anzahl an Simulationen in der Grafik nicht enthalten.
+
+## Missing Values
+Es wurden Daten aus dem Modell $y = b1 * observation + b2 * condition + (1|subject)$ mit 10 Testobjekten mit jeweils 6 Beobachtungen generiert und dabei der Anteil an fehlenden Werte (10%, 30%, 50%) variiert. Die Werte sind dabei missign completely at random.
+Für jeden Anteil wurden für jede Methode 5000 Datensätze simuliert. Aufgrund des höheren Rechnaufwands wurden für das parametrische Boostrappen nur 5 Datensätze mit jeweils 5 Bootstrap-Wiederholungen simuliert.
+
+```{r plot missing, echo = FALSE, warning = FALSE}
+load("data_missing_5000.RData")
+
+ggplot(data_missing, aes(x = p.missing, y = p, col = REML, shape = method)) + 
+  geom_point(position = position_dodge(.6)) + 
+  geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
+  geom_hline(yintercept = .05) +
+  ylim(0, .12) +
+  ggtitle("Type 1 Error Rate by Ratio of Missing Values") +
+  ylab("Type 1 Error Rate") +
+  xlab("Ratio of Missing Values")
+```
+
+Auch hier weist der LRT mittels REML die schlechtesten Ergebnisse auf, er ist unter allen drei Bedinugen zu konservativ.
+Wiederum scheinen SW- und KR-Approximation das Alpha-Niveau am besten einzuhalten.
+LRT und "t-as-z" sind in allen Bedingungen antikonservativ.
+
+
+## Effektstärke
+Es wurden Daten aus dem Modell $y = b1 * observation + b2 * condition + (1|subject)$ mit 10 Testobjekten mit jeweils 6 Beobachtungen generiert und dabei die Höhe des getesten Koeffizienten (0, 0.5, 1, 1.5, 2, 2.5) variiert.
+Für jeden Anteil wurden für jede Methode 2500 Datensätze simuliert. Aufgrund des höheren Rechnaufwands wurden für das parametrische Boostrappen nur 5 Datensätze mit jeweils 5 Bootstrap-Wiederholungen simuliert.
+
+```{r echo = FALSE, warning = FALSE}
+load("data_ES_2500.RData")
+
+data_ES %>% 
+  filter(method != "Parametric Bootstrap") %>% 
+  ggplot(aes(x = ES, y = p, col = REML, shape = method)) + 
+  geom_point(position = position_dodge(.6)) + 
+  geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
+  geom_hline(yintercept = .8) +
+  ylim(0, 1) +
+  ggtitle("Type 1 Error Rate by Effect Size") +
+  ylab("Type 1 Error Rate") +
+  xlab("Effect Size")
+```
+
+An der Grafik kann gesehen werden, dass die Güte der Methoden recht schnell ansteigt und schon für b1 = 1 fast 100% beträgt.
+Die einzelnen Verfahren unterscheiden sich dabei kaum. Nur LRT mittels REML erreicht erst bei höheren Effektstärken die gleiche Güte wie die anderen.
+Das parametrische Bootstrappen ist aufgrund der geringen Anzahl an Simulationen in der Grafik nicht enthalten.
