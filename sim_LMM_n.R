@@ -84,7 +84,7 @@ m.null <- y ~ cond + (1|subj)
 model <- y ~ obs + cond + (1|subj)
 
 #Parameter für Simulationen
-nsim <- 2500
+nsim <- 1000
 beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
 n.subj <- c(4, 6, 10, 16)
 n.obs <- c(4, 6, 10, 16)

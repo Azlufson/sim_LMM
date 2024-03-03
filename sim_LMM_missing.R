@@ -81,15 +81,15 @@ m.null <- y ~ cond + (1|subj)
 model <- y ~ obs + cond + (1|subj)
 
 #Parameter für Simulationen
-nsim <- 5000
+nsim <- 1
 beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
 p.missing <- c(.1, .3, .5)
 
 plan("multisession", workers = detectCores())
 
 #Parameter für parametric bootstrap
-nsim.mixed <- 5 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim.pb)
-nsim.pb <- 5
+nsim.mixed <- 1 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim.pb)
+nsim.pb <- 1
 
 ###LRT
 ##REML (nicht empfohlen)
