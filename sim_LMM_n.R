@@ -98,6 +98,9 @@ plan("multisession", workers = availableCores(), gc = TRUE)
 nsim.mixed <- 5 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim.pb)
 nsim.pb <- 5
 
+#Seed
+set.seed(1996)
+
 ###LRT
 ##REML (nicht empfohlen)
 data_LRT.REML <- t(future_apply(grid, 1, function(x) replicate(nsim, test_lrtstat(sim_data_int(n.subj = x[1], n.obs = x[2], beta_obs = beta_obs), m.full, m.null)), future.seed = TRUE))
