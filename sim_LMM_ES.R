@@ -121,7 +121,7 @@ p_LRT.REML <- data_LRT.REML_long %>%
          method = 1)
 
 ##ML
-data_LRT.ML <- t(sapply(ES, function(x) future <- future_replicate(nsim, test_lrtstat(sim_data_int(beta_obs = x), m.full, m.null, REML = FALSE))))
+data_LRT.ML <- t(sapply(ES, function(x) future_replicate(nsim, test_lrtstat(sim_data_int(beta_obs = x), m.full, m.null, REML = FALSE))))
 colnames(data_LRT.ML) <- 1:nsim
 data_LRT.ML_long <- as.data.frame(cbind(ES, data_LRT.ML))
 data_LRT.ML_long <- gather(data_LRT.ML_long, sim, p.LRT.ML, 2:ncol(data_LRT.ML_long))

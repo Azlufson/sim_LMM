@@ -23,7 +23,6 @@ library(parallel)
 library(tidyverse)
 library(lme4)
 library(lmerTest)
-library(pbkrtest)
 library(afex)
 
 ##Datengeneration
@@ -84,7 +83,7 @@ m.null <- y ~ cond + (1|subj)
 model <- y ~ obs + cond + (1|subj)
 
 #Parameter für Simulationen
-nsim <- 1000
+nsim <- 1
 beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
 n.subj <- c(4, 6, 10, 16)
 n.obs <- c(4, 6, 10, 16)

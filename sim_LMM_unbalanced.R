@@ -134,7 +134,7 @@ p_LRT.REML <- data_LRT.REML_long %>%
          method = 1)
 
 ##ML
-data_LRT.ML <- t(apply(grid, 1, function(x) future <- future_replicate(nsim, test_lrtstat(sim_data_int_unb(n.group1 = x[1], n.group2 = x[2]), m.full, m.null, REML = FALSE))))
+data_LRT.ML <- t(apply(grid, 1, function(x) future_replicate(nsim, test_lrtstat(sim_data_int_unb(n.group1 = x[1], n.group2 = x[2]), m.full, m.null, REML = FALSE))))
 colnames(data_LRT.ML) <- 1:nsim
 data_LRT.ML_long <- as.data.frame(cbind(grid, data_LRT.ML))
 data_LRT.ML_long <- gather(data_LRT.ML_long, sim, p.LRT.ML, 3:ncol(data_LRT.ML_long))
