@@ -30,15 +30,13 @@ library(afex)
 
 ##Datengeneration
 #einfaches Modell nur mit random intercept
-# y = b0 + b1*obs + b2*cond + (1|subj) + epsilon
-#n.subj und n.obs müssen gerade sein
-sim_data_int <- function(n.subj = 10, n.obs = 6, b0 = 10, beta_obs = 0, beta_cond = 5, sd.int_subj = 6, sd_eps = 2) {
-  subj <- rep(1:n.subj, each = n.obs)
-  obs <- rep(rep(c(0,1), each = n.obs/2), n.subj)
-  cond <- rep(c(0,1), n.subj*n.obs/2)
-  subj_int <- rep(rnorm(n.subj, 0, sd.int_subj), each = n.obs)
-  y <- b0 + beta_obs * obs + beta_cond * cond + subj_int + rnorm(n.obs*n.subj, 0, sd_eps)
-  return(data.frame(subj, obs, cond, y))
+# y = b0 + b2*cond + (1|subj) + epsilon
+sim_data_int <- function(n.subj = 10, n.obs = 6, b0 = 10, beta_cond = 0, sd.int_subj = 6, sd_eps = 2) {
+  subj <- rep(1:n.subj, each = n.obs * 2)
+  cond <- rep(c(0,1), n.subj*n.obs)
+  subj_int <- rep(rnorm(n.subj, 0, sd.int_subj), each = n.obs*2)
+  y <- 10 + beta_cond * cond + subj_int + rnorm(length(subj), 0, 2)
+  return(data.frame(subj, cond, y))
 }
 
 ##missing values erzeugen (MCAR)
@@ -74,15 +72,15 @@ test_PB.fixed <- function(mode, data, nsim.pb = 1000, cl = NULL) {
 #kleine Tests haben ergeben, dass es am effizientesten ist, fürs fitten und fürs bootstrap multicore zu nutzen
 
 #full and null model (LRT):
-m.full <- y ~ obs + cond + (1|subj)
-m.null <- y ~ cond + (1|subj)
+m.full <- y ~ cond + (1|subj)
+m.null <- y ~ (1|subj)
 
 #model
-model <- y ~ obs + cond + (1|subj)
+model <- y ~ cond + (1|subj)
 
 #Parameter für Simulationen
 nsim <- 1
-beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
+beta_cond <- 0 #auf diesen fixed effect wird jeweils getestet
 p.missing <- c(.1, .3, .5)
 
 plan("multisession", workers = detectCores())
