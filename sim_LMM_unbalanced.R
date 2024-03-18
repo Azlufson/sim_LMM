@@ -37,15 +37,12 @@ library(afex)
 # y = b0 + beta_group * group + (1|cond)
 #n.subj und n.obs müssen gerade sein
 sim_data_int_unb <- function(n.group1 = 10, n.group2 = 10, n.cond = 4, b0 = 10, beta_group = 0, sd.int_cond = 6, sd_eps = 1) {
-  group <- c(rep(1, n.group1 * n.cond), rep(2, n.group2 * n.cond))
+  group <- c(rep(0, n.group1 * n.cond), rep(1, n.group2 * n.cond))
   cond <- rep(1:n.cond, length(group)/n.cond)
   cond_int <- rep(rnorm(n.cond, 0, sd.int_cond), length(group)/4)
   y <- b0 + beta_group * group + cond_int + rnorm(length(group), 0, sd_eps)
   return(data.frame(group = as.factor(group), cond = as.factor(cond), y))
 }
-
-data <- sim_data_int_unb()
-summary(lmer(model, sim_data_int_unb(n.group1 = 4, n.group2 = 4, n.cond = 4, beta_group = 10), REML = FALSE))
 
 ##Daten unbalanciert machen (nicht mehr benötigt)
 #p_rand ... Unbalanciertheit im random effect
@@ -64,8 +61,6 @@ test_lrtstat <- function(data, m.full, m.null, REML = TRUE) {
   return(pchisq(as.numeric(2 * (logLik(full) - logLik(null))), df = 1, lower = FALSE))
   #return(as.numeric(2 * (logLik(full) - logLik(null))))
 }
-
-test_lrtstat(data = sim_data_int_unb(beta_group = 10), m.full, m.null, FALSE)
 
 ##t-as-z
 test_TasZ.fixed <- function(data, m.full, REML = TRUE) {
@@ -97,18 +92,18 @@ m.null <- y ~ (1|cond)
 model <- y ~ group + (1|cond)
 
 #Parameter für Simulationen
-nsim <- 2500
-beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
-n.group1 <-  10
-n.group2 <- n.group1 * c(1, 2, 3, 4)
-grid <- expand.grid(n.group1, n.group2)
-colnames(grid) <- c("n.group1", "n.group2")
+nsim <- 2
+beta_group <- 0 #auf diesen fixed effect wird jeweils getestet
+n.group1 <- c(25, 40, 50, 75, 90, 150) 
+n.group2 <- c(25, 10, 50, 25, 10, 50)
+grid <- cbind(n.group1, n.group2)
+#colnames(grid) <- c("n.group1", "n.group2")
 
 plan("multisession", workers = detectCores())
 
 #Parameter für parametric bootstrap
-nsim.mixed <- 100 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim.pb)
-nsim.pb <- 100
+nsim.mixed <- 2 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim.pb)
+nsim.pb <- 2
 
 ###LRT
 ##REML (nicht empfohlen)
@@ -315,31 +310,31 @@ ggplot(data_unbalanced, aes(x = n.group2, y = p, col = REML, shape = method)) +
 #nur SW und KR
 data_unbalanced %>% 
   filter(method %in% c("Satterthwaite", "Kenward-Roger")) %>% 
-  ggplot(aes(x = p_rand, y = p, col = REML, shape = method)) + 
+  ggplot(aes(x = n.group2, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
-  facet_wrap(~p_fixed, nrow = 1) +
+  facet_wrap(~n.group1, nrow = 1) +
   ylim(0, .1)
 
 #nur SW
 data_unbalanced %>% 
   filter(method %in% c("Satterthwaite")) %>% 
-  ggplot(aes(x = p_rand, y = p, col = REML, shape = method)) + 
+  ggplot(aes(x = n.group2, y = p, col = REML, shape = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
-  facet_wrap(~p_fixed, nrow = 1) +
+  facet_wrap(~n.group1, nrow = 1) +
   ylim(0, .1)
 
 #nur ML
 data_unbalanced %>% 
   filter(REML == "ML") %>% 
-  ggplot(aes(x = p_rand, y = p, col = method)) + 
+  ggplot(aes(x = n.group2, y = p, col = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
-  facet_wrap(~p_fixed, nrow = 1) +
+  facet_wrap(~n.group1, nrow = 1) +
   ylim(0, .12)
 
 #nur REML
@@ -355,9 +350,9 @@ data_unbalanced %>%
 #nur t as z
 data_unbalanced %>% 
   filter(method == "t-as-z") %>% 
-  ggplot(aes(x = p_rand, y = p, col = REML)) + 
+  ggplot(aes(x = n.group2, y = p, col = REML)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
-  facet_wrap(~p_fixed, nrow = 1) +
+  facet_wrap(~n.group1, nrow = 1) +
   ylim(0, .12)
