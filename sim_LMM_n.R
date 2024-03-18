@@ -17,6 +17,8 @@
 ##TODO: KR für REML?, PB für REML?
 ##      funktionen aus anderem skript importieren?
 ##      n.subj, n.obs für ungerade zahlen
+##      cond aus Modell entfernen?
+##      obs oder cond ändern auf dichotom (mit variables Anzahl an Beobachtungen)
 
 library(future.apply)
 library(parallel)
@@ -30,12 +32,11 @@ library(afex)
 # y = b0 + b1*obs + b2*cond + (1|subj) + epsilon
 #n.subj und n.obs müssen gerade sein
 sim_data_int <- function(n.subj = 10, n.obs = 6, b0 = 10, beta_obs = 0, beta_cond = 5, sd.int_subj = 6, sd_eps = 2) {
-  subj <- rep(1:n.subj, each = n.obs)
-  obs <- rep(rep(c(0,1), each = n.obs/2), n.subj)
-  cond <- rep(c(0,1), n.subj*n.obs/2)
-  subj_int <- rep(rnorm(n.subj, 0, sd.int_subj), each = n.obs)
-  y <- b0 + beta_obs * obs + beta_cond * cond + subj_int + rnorm(n.obs*n.subj, 0, sd_eps)
-  return(data.frame(subj, obs, cond, y))
+  subj <- rep(1:n.subj, each = n.obs * 2)
+  cond <- rep(c(0,1), n.subj*n.obs)
+  subj_int <- rep(rnorm(n.subj, 0, 2), each = n.obs*2)
+  y <- 10 + 20 * cond + subj_int + rnorm(n.obs*n.subj, 0, 2)
+  return(data.frame(subj, cond, y))
 }
 
 ##LRT:
