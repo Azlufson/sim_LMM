@@ -1,4 +1,5 @@
-library(tidyverse)
+library(tidyr)
+library(dplyr)
 library(lme4)
 library(lmerTest)
 
@@ -50,7 +51,7 @@ m.null <- y ~ cond + (1|subj)
 model <- y ~ obs + cond + (1|subj)
 
 #Parameter für Simulationen
-nsim <- 2
+nsim <- 2500
 if(nsim < 2) nsim <- 2 #sonst funktioniert Skript nicht
 beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
 n.subj <- c(4, 6, 10, 16)
@@ -194,7 +195,7 @@ data_n$n.subj <- as.factor(data_n$n.subj)
 data_n$REML <- factor(data_n$REML, labels = c("ML", "REML"))
 data_n$method <- factor(data_n$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger"))
 
-save(data_n, file = "data_n_10000.RData")
+save(data_n, file = paste0("/data/hermann/data_n_", nsim, ".RData"))
 rm(list = ls())
 
 
@@ -255,7 +256,7 @@ m.null <- y ~ cond + (1|subj)
 model <- y ~ obs + cond + (1|subj)
 
 #Parameter für Simulationen
-nsim <- 2
+nsim <- 2500
 beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
 p.missing <- c(.1, .3, .5)
 
@@ -400,7 +401,7 @@ data_missing$p.missing <- as.factor(data_missing$p.missing)
 data_missing$REML <- factor(data_missing$REML, labels = c("ML", "REML"))
 data_missing$method <- factor(data_missing$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger"))
 
-save(data_missing, file = "data_missing_10000.RData")
+save(data_missing, file = paste0("/data/hermann/data_missing_", nsim, ".RData"))
 rm(list = ls())
 
 #############################################################################################################################
@@ -445,7 +446,7 @@ m.null <- y ~ (1|cond)
 model <- y ~ group + (1|cond)
 
 #Parameter für Simulationen
-nsim <- 2
+nsim <- 2500
 beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
 n.group1 <-  10
 n.group2 <- n.group1 * c(1, 2, 3, 4)
@@ -595,17 +596,12 @@ data_unbalanced$n.group2 <- as.factor(data_unbalanced$n.group2)
 data_unbalanced$REML <- factor(data_unbalanced$REML, labels = c("ML", "REML"))
 data_unbalanced$method <- factor(data_unbalanced$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger"))
 
-save(data_unbalanced, file = "data_unbalanced_10000.RData")
+save(data_unbalanced, file = paste0("/data/hermann/data_unbalanced_", nsim, ".RData"))
 rm(list = ls())
 
 #############################################################################################################################
 #Effect Size
 #############################################################################################################################
-
-
-library(tidyverse)
-library(lme4)
-library(lmerTest)
 
 ##Datengeneration
 #einfaches Modell nur mit random intercept
@@ -646,7 +642,7 @@ m.null <- y ~ cond + (1|subj)
 model <- y ~ obs + cond + (1|subj)
 
 #Parameter für Simulationen
-nsim <- 2
+nsim <- 2500
 beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
 ES <- seq(0, 1.4, .2)
 
@@ -792,7 +788,7 @@ data_ES$ES <- as.factor(data_ES$ES)
 data_ES$REML <- factor(data_ES$REML, labels = c("ML", "REML"))
 data_ES$method <- factor(data_ES$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger"))
 
-save(data_ES, file = "data_ES_10000.RData")
+save(data_ES, file = paste0("/data/hermann/data_ES_", nsim, ".RData"))
 rm(list = ls())
 
 
@@ -800,10 +796,6 @@ rm(list = ls())
 #Effect Size by Sample Size
 #############################################################################################################################
 
-
-library(tidyverse)
-library(lme4)
-library(lmerTest)
 
 ##Datengeneration
 #einfaches Modell nur mit random intercept
@@ -844,7 +836,7 @@ m.null <- y ~ cond + (1|subj)
 model <- y ~ obs + cond + (1|subj)
 
 #Parameter für Simulationen
-nsim <- 2
+nsim <- 2500
 beta_obs <- 0 #auf diesen fixed effect wird jeweils getestet
 ES <- seq(0, 1.4, .2)
 n.obs <- c(4, 6, 10, 16)
@@ -988,5 +980,5 @@ data_ESn$n.obs <- as.factor(data_ESn$n.obs)
 data_ESn$REML <- factor(data_ESn$REML, labels = c("ML", "REML"))
 data_ESn$method <- factor(data_ESn$method, labels = c("LRT", "t-as-z", "Satterthwaite", "Kenward-Roger"))
 
-save(data_ESn, file = "data_ESn_10000.RData")
+save(data_ESn, file = paste0("/data/hermann/data_ESn_", nsim, ".RData"))
 rm(list = ls())

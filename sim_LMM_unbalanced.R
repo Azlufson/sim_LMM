@@ -266,24 +266,31 @@ p_SW.ML <- data_SW.ML_long %>%
 
 #Kenward-Roger nur für ML möglich!
 
+#future cluster stoppen
+future:::ClusterRegistry("stop")
 
-###parametric bootstrap (nur ML)
+###parametric bootstrap
+##ML
+REML = FALSE
+#Cluster festlegen
+n.cores <- parallel::detectCores() - n.cores_no
+my.cluster <- parallel::makeCluster(
+  n.cores, 
+  type = "PSOCK"
+)
+doParallel::registerDoParallel(cl = my.cluster)
 
-#Cluster festlegen (future funktioniert nicht)
-cl <- makeCluster(rep("localhost", detectCores())) # make cluster
+#set seed für foreach
+registerDoRNG(1996)
 
-data_PB <- t(apply(grid, 1, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = sim_data_int_unb(n.group1 = x[1], n.group2 = x[2]), nsim.pb = nsim.pb, cl = cl))))
-colnames(data_PB) <- 1:nsim.mixed
-data_PB_long <- as.data.frame(cbind(grid, data_PB))
-data_PB_long <- gather(data_PB_long, sim, p.PB, 3:ncol(data_PB_long))
+data_PB.ML <- t(apply(grid, 1, function(x) replicate(nsim.pb, test_PB(data = sim_data_int_unb(n.group1 = x[1], n.group2 = x[2]), m.full = m.full,m.null = m.null, n.bs = n.bs, REML = REML))))
+colnames(data_PB.ML) <- 1:nsim.pb
+data_PB.ML_long <- as.data.frame(cbind(grid, data_PB.ML))
+data_PB.ML_long <- gather(data_PB.ML_long, sim, p.PB.ML, 3:ncol(data_PB.ML_long))
 
-data_PB_long %>% 
+p_PB.ML <- data_PB.ML_long %>% 
   group_by(n.group1, n.group2) %>% 
-  summarize(prop_PB = mean(p.PB <= .05))
-
-p_PB <- data_PB_long %>% 
-  group_by(n.group1, n.group2) %>% 
-  summarize(k = sum(p.PB < .05) + 1.96^2/2,
+  summarize(k = sum(p.PB.ML < .05) + 1.96^2/2,
             n = n() + 1.96^2,
             p = k/n,
             p_l = p - 1.96 * sqrt(p*(1-p)/n),
@@ -292,8 +299,30 @@ p_PB <- data_PB_long %>%
   mutate(REML = 0,
          method = 5)
 
+##REML
+REML = TRUE
+
+#set seed für foreach
+registerDoRNG(1996)
+
+data_PB.REML <- t(apply(grid, 1, function(x) replicate(nsim.pb, test_PB(data = sim_data_int_unb(n.group1 = x[1], n.group2 = x[2]), m.full = m.full,m.null = m.null, n.bs = n.bs, REML = REML))))
+colnames(data_PB.REML) <- 1:nsim.pb
+data_PB.REML_long <- as.data.frame(cbind(grid, data_PB.REML))
+data_PB.REML_long <- gather(data_PB.REML_long, sim, p.PB.REML, 3:ncol(data_PB.REML_long))
+
+p_PB.REML <- data_PB.REML_long %>% 
+  group_by(n.group1, n.group2) %>% 
+  summarize(k = sum(p.PB.REML < .05) + 1.96^2/2,
+            n = n() + 1.96^2,
+            p = k/n,
+            p_l = p - 1.96 * sqrt(p*(1-p)/n),
+            p_u = p + 1.96 * sqrt(p*(1-p)/n)) %>% 
+  select(n.group1, n.group2, p, p_l, p_u) %>% 
+  mutate(REML = 1,
+         method = 5)
+
 ### Grafiken der Ergebnisse
-data_unbalanced <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML, p_PB)
+data_unbalanced <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML, p_PB.ML, p_PB.REML)
 data_unbalanced$n.group1 <- as.factor(data_unbalanced$n.group1)
 data_unbalanced$n.group2 <- as.factor(data_unbalanced$n.group2)
 data_unbalanced$REML <- factor(data_unbalanced$REML, labels = c("ML", "REML"))

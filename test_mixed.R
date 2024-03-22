@@ -1,6 +1,8 @@
 library(afex)
 library(parallel)
 library(future.apply)
+library(foreach)
+library(doRNG)
 
 ##Datengeneration
 #einfaches Modell nur mit random intercept
@@ -111,6 +113,7 @@ test_pb <- function(data, m.full, m.null, n.pb, REML = FALSE) {
   nullmod <- lmer(m.null, data = data, REML = REML)
   fullmod <- lmer(m.full, data = data, REML = REML)
   lrstat <- numeric(n.pb)
+  print("1")
   lrstat <- foreach(i = 1:n.pb, .combine = "c") %dopar% {
     data$y_sim <- unlist(simulate(nullmod))
     null <- lmer(update(m.null, y_sim ~ .), data = data, REML = REML)
@@ -122,7 +125,8 @@ test_pb <- function(data, m.full, m.null, n.pb, REML = FALSE) {
 
 #test_pb(data = sim_data_int(), m.full = m.full, m.null = m.null, n.pb = 100, REML = FALSE)
 
-n.sim <- 100
+n.sim <- 12
+n.bs <- 100
 
 n.cores <- parallel::detectCores()
 my.cluster <- parallel::makeCluster(
@@ -133,57 +137,21 @@ doParallel::registerDoParallel(cl = my.cluster)
 
 registerDoRNG(123)
 start <- Sys.time()
-lrt <- replicate(n.sim, test_pb(data = sim_data_int(beta_cond = 0), m.full = m.full, m.null = m.null, n.pb = 10, REML = FALSE))
+lrt <- replicate(n.sim, test_PB(data = sim_data_int(beta_cond = 0), m.full = m.full, m.null = m.null, n.bs = n.bs, REML = FALSE))
 end <- Sys.time()
 end-start
 parallel::stopCluster(cl = my.cluster)
-identical(lrt1, lrt2)
 
-mean(lrt < .05)
-
-library(foreach)
-library(doRNG)
-
-n.pb <- 1000
-REML <- FALSE
-data <- sim_data_int()
-
-n.cores <- parallel::detectCores()
-my.cluster <- parallel::makeCluster(
-  n.cores, 
-  type = "PSOCK"
-)
-doParallel::registerDoParallel(cl = my.cluster)
-foreach::getDoParRegistered()
-foreach::getDoParWorkers()
+beta_cond <- 0 #auf diesen fixed effect wird jeweils getestet
+n.subj <- c(4, 6, 10, 16)
+n.obs <- c(4, 6, 10, 16)
+grid <- expand.grid(n.subj, n.obs)
+colnames(grid) <- c("n.subj", "n.obs")
 
 start <- Sys.time()
-nullmod <- lmer(m.null, data = data, REML = REML)
-fullmod <- lmer(m.full, data = data, REML = REML)
-lrstat <- numeric(n.pb)
-lrstat <- foreach(i = 1:n.pb, .combine = "c") %dopar% {
-  data$y_sim <- unlist(simulate(nullmod))
-  null <- lmer(update(m.null, y_sim ~ .), data = data, REML = REML)
-  alt <- lmer(update(m.full, y_sim ~ .), data = data, REML = REML)
-  as.numeric(2*(logLik(alt)-logLik(null)))
-}
-mean(lrstat > as.numeric(2*(logLik(fullmod)-logLik(nullmod))))
+data_PB.ML <- t(apply(grid, 1, function(x) replicate(nsim.pb, test_PB(data = sim_data_int(n.subj = x[1], n.obs = x[2], beta_cond = beta_cond), m.full = m.full,m.null = m.null, n.bs = n.bs, REML = FALSE))))
 end <- Sys.time()
 end-start
 parallel::stopCluster(cl = my.cluster)
 
 
-x <- vector()
-for(i in 1:10){
-  x[i] <- sqrt(i)
-}
-x
-
-
-x <- foreach(
-  i = 1:10, 
-  .combine = 'c'
-) %dopar% {
-  sqrt(i)
-}
-x

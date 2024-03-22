@@ -22,7 +22,8 @@ library(parallel)
 library(tidyverse)
 library(lme4)
 library(lmerTest)
-library(afex)
+library(foreach)
+library(doRNG)
 
 ##Datengeneration
 #einfaches Modell nur mit random intercept
@@ -61,16 +62,22 @@ test_approx.fixed <- function(data, model, REML = TRUE, ddf = "Satterthwaite") {
   return(anova(lmer(model, data = data, REML = REML), ddf = ddf)$`Pr(>F)`[1])
 }
 
-##Funktion zur Ausgabe des p-Wertes des fixed effects via parametric bootstrap
-#mixed auf afex (nutzt pbmodcomp)
-#nsim.pb bestimmt anzahl an bootstrap-simulationen von pbmodcomp
-#cl erlaubt multicore nutzung (via package parallel)
-test_PB.fixed <- function(model, data, nsim.pb = 1000, cl = NULL) {
-  return(suppressMessages(mixed(model, data = data, method = "PB", progress = FALSE, cl = cl, args_test = list(nsim = nsim.pb, cl = cl))$anova_table$`Pr(>PB)`[1]))
+##Funktion fürs parametric bootstrapping
+#benötigt package foreach
+#mixed (bz.w pbmodcomp) parallelisiert nicht
+#doRNG notwendig, um richtig seed zu setzen
+test_PB <- function(data, m.full, m.null, n.bs, REML = FALSE) {
+  nullmod <- lmer(m.null, data = data, REML = REML)
+  fullmod <- lmer(m.full, data = data, REML = REML)
+  lrstat <- numeric(n.bs)
+  lrstat <- foreach(i = 1:n.bs, .combine = "c") %dopar% {
+    data$y_sim <- unlist(simulate(nullmod))
+    null <- lmer(update(m.null, y_sim ~ .), data = data, REML = REML)
+    alt <- lmer(update(m.full, y_sim ~ .), data = data, REML = REML)
+    as.numeric(2*(logLik(alt)-logLik(null)))
+  }
+  return(mean(lrstat > as.numeric(2*(logLik(fullmod)-logLik(nullmod)))))
 }
-#suppressMessages: "mixed" will throw a message if numerical variables are not centered on 0, as main effects (of other variables then the numeric one) can be hard to interpret if numerical variables appear in interactions. See Dalal & Zickar (2012).
-#kleine Tests haben ergeben, dass es am effizientesten ist, fürs fitten und fürs bootstrap multicore zu nutzen
-
 
 #full and null model (LRT):
 m.full <- y ~ cond + (1|subj)
@@ -80,7 +87,7 @@ m.null <- y ~ (1|subj)
 model <- y ~ cond + (1|subj)
 
 #Parameter für Simulationen
-nsim <- 3
+nsim <- 12
 beta_cond <- 0 #auf diesen fixed effect wird jeweils getestet
 n.subj <- c(4, 6, 10, 16)
 n.obs <- c(4, 6, 10, 16)
@@ -91,8 +98,8 @@ colnames(grid) <- c("n.subj", "n.obs")
 plan("multisession", workers = availableCores(), gc = TRUE)
 
 #Parameter für parametric bootstrap
-nsim.mixed <- 5 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit nsim.pb)
-nsim.pb <- 5
+nsim.pb <- 12 #niedriger, weil pro iteration auch noch gebootstrapped wird (mit n.bs)
+n.bs <- 100
 
 #Seed
 set.seed(1996)
@@ -251,24 +258,30 @@ p_SW.ML <- data_SW.ML_long %>%
 
 #Kenward-Roger nur für ML möglich!
 
+#future cluster stoppen
+future:::ClusterRegistry("stop")
 
-###parametric bootstrap (nur ML)
+###parametric bootstrap
+##ML
+REML = FALSE
+#Cluster festlegen
+n.cores <- parallel::detectCores()
+my.cluster <- parallel::makeCluster(
+  n.cores, 
+  type = "PSOCK"
+)
+doParallel::registerDoParallel(cl = my.cluster)
 
-#Cluster festlegen (future_apply funktioniert nicht)
-(nc <- detectCores()) # number of cores
-cl <- makeCluster(rep("localhost", nc)) # make cluster
+#set seed für foreach
+registerDoRNG(1996)
 
-data_PB <- t(apply(grid, 1, function(x) replicate(nsim.mixed, test_PB.fixed(model, data = sim_data_int(n.subj = x[1], n.obs = x[2], beta_cond = beta_cond), nsim.pb = nsim.pb, cl = cl))))
-data_PB_long <- cbind(grid, data_PB)
-data_PB_long <- gather(data_PB_long, sim, p.PB, (ncol(grid)+1):ncol(data_PB_long))
+data_PB.ML <- t(apply(grid, 1, function(x) replicate(nsim.pb, test_PB(data = sim_data_int(n.subj = x[1], n.obs = x[2], beta_cond = beta_cond), m.full = m.full,m.null = m.null, n.bs = n.bs, REML = REML))))
+data_PB.ML_long <- cbind(grid, data_PB.ML)
+data_PB.ML_long <- gather(data_PB.ML_long, sim, p.PB.ML, (ncol(grid)+1):ncol(data_PB.ML_long))
 
-data_PB_long %>% 
+p_PB.ML <- data_PB.ML_long %>% 
   group_by(n.subj, n.obs) %>% 
-  summarize(prop_PB = mean(p.PB <= .05))
-
-p_PB <- data_PB_long %>% 
-  group_by(n.subj, n.obs) %>% 
-  summarize(k = sum(p.PB < .05) + 1.96^2/2,
+  summarize(k = sum(p.PB.ML < .05) + 1.96^2/2,
             n = n() + 1.96^2,
             p = k/n,
             p_l = p - 1.96 * sqrt(p*(1-p)/n),
@@ -277,8 +290,30 @@ p_PB <- data_PB_long %>%
   mutate(REML = 0,
          method = 5)
 
+##REML
+REML = TRUE
+
+#set seed für foreach
+registerDoRNG(123)
+
+data_PB.REML <- t(apply(grid, 1, function(x) replicate(nsim.pb, test_PB(data = sim_data_int(n.subj = x[1], n.obs = x[2], beta_cond = beta_cond), m.full = m.full, m.null = m.null ,n.bs = n.bs, REML = REML))))
+parallel::stopCluster(cl = my.cluster)
+data_PB.REML_long <- cbind(grid, data_PB.REML)
+data_PB.REML_long <- gather(data_PB.REML_long, sim, p.PB.REML, (ncol(grid)+1):ncol(data_PB.REML_long))
+
+p_PB.REML <- data_PB.REML_long %>% 
+  group_by(n.subj, n.obs) %>% 
+  summarize(k = sum(p.PB.REML < .05) + 1.96^2/2,
+            n = n() + 1.96^2,
+            p = k/n,
+            p_l = p - 1.96 * sqrt(p*(1-p)/n),
+            p_u = p + 1.96 * sqrt(p*(1-p)/n)) %>% 
+  select(n.obs, n.subj, p, p_l, p_u) %>% 
+  mutate(REML = 1,
+         method = 5)
+
 ### Grafiken der Ergebnisse
-data_n <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML, p_PB)
+data_n <- rbind(p_TasZ.ML, p_TasZ.REML, p_LRT.ML, p_LRT.REML, p_SW.ML, p_SW.REML, p_KR.REML, p_PB.ML, p_PB.REML)
 data_n$n.obs <- as.factor(data_n$n.obs)
 data_n$n.subj <- as.factor(data_n$n.subj)
 data_n$REML <- factor(data_n$REML, labels = c("ML", "REML"))
