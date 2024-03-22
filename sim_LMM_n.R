@@ -16,9 +16,6 @@
 
 ##TODO: KR für REML?, PB für REML?
 ##      funktionen aus anderem skript importieren?
-##      n.subj, n.obs für ungerade zahlen
-##      cond aus Modell entfernen?
-##      obs oder cond ändern auf dichotom (mit variables Anzahl an Beobachtungen)
 
 library(future.apply)
 library(parallel)

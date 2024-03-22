@@ -340,11 +340,11 @@ data_unbalanced %>%
 #nur REML
 data_unbalanced %>% 
   filter(REML == "REML") %>% 
-  ggplot(aes(x = p_rand, y = p, col = method)) + 
+  ggplot(aes(x = n.group2, y = p, col = method)) + 
   geom_point(position = position_dodge(.6)) + 
   geom_errorbar(aes(ymin = p_l, ymax = p_u), position = position_dodge(.6), width = .3) +
   geom_hline(yintercept = .05) +
-  facet_wrap(~p_fixed, nrow = 1) +
+  facet_wrap(~n.group1, nrow = 1) +
   ylim(0, .1)
 
 #nur t as z

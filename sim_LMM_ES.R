@@ -3,7 +3,7 @@
 #testen: fixed effects, random effects
 #Parameter: Stichprobengröße, Stärke des Effekts, Komplexität des Modells, missing values, balanciertes Design
 #Schätzmethoden:  ML, REML
-#                 Sattherwaite, Kenward-Rogers
+#                 Sattherwaite, Kenward-Roger
 #                 MCMC (Baayen et al., 2008)
 #                 t as z
 
@@ -17,7 +17,6 @@
 
 ##TODO: KR für REML?, PB für REML?
 ##      funktionen aus anderem skript importieren?
-##      ES für ungerade zahlen
 ##      future_sapply vs future_replicate testen
 
 library(future.apply)
@@ -100,7 +99,7 @@ nsim.pb <- 2
 
 ###LRT
 ##REML (nicht empfohlen)
-data_LRT.REML <- t(apply(grid, 1, function(x) replicate(nsim, test_lrtstat(sim_data_int(beta_cond = x[1], n.obs = x[2]), m.full, m.null))))
+data_LRT.REML <- t(apply(grid, 1, function(x) future_replicate(nsim, test_lrtstat(sim_data_int(beta_cond = x[1], n.obs = x[2]), m.full, m.null))))
 colnames(data_LRT.REML) <- 1:nsim
 data_LRT.REML_long <- as.data.frame(cbind(grid, data_LRT.REML))
 data_LRT.REML_long <- gather(data_LRT.REML_long, sim, p.LRT.REML, 3:ncol(data_LRT.REML_long))
@@ -118,7 +117,7 @@ p_LRT.REML <- data_LRT.REML_long %>%
          method = 1)
 
 ##ML
-data_LRT.ML <- t(apply(grid, 1, function(x) replicate(nsim, test_lrtstat(sim_data_int(beta_cond = x[1], n.obs = x[2]), m.full, m.null, REML = FALSE))))
+data_LRT.ML <- t(apply(grid, 1, function(x) future_replicate(nsim, test_lrtstat(sim_data_int(beta_cond = x[1], n.obs = x[2]), m.full, m.null, REML = FALSE))))
 data_LRT.ML_long <- as.data.frame(cbind(grid, data_LRT.ML))
 data_LRT.ML_long <- gather(data_LRT.ML_long, sim, p.LRT.ML, 3:ncol(data_LRT.ML_long))
 
@@ -135,7 +134,7 @@ p_LRT.ML <- data_LRT.ML_long %>%
 
 ###t-as-z
 ##REML
-data_TasZ.REML <- t(apply(grid, 1, function(x) replicate(nsim, test_TasZ.fixed(sim_data_int(beta_cond = x[1], x[2]), model))))
+data_TasZ.REML <- t(apply(grid, 1, function(x) future_replicate(nsim, test_TasZ.fixed(sim_data_int(beta_cond = x[1], x[2]), model))))
 data_TasZ.REML_long <- as.data.frame(cbind(grid, data_TasZ.REML))
 data_TasZ.REML_long <- gather(data_TasZ.REML_long, sim, p.TasZ.REML, 3:ncol(data_TasZ.REML_long))
 
@@ -151,7 +150,7 @@ p_TasZ.REML <- data_TasZ.REML_long %>%
          method = 2)
 
 ##ML
-data_TasZ.ML <- t(apply(grid, 1, function(x) replicate(nsim, test_TasZ.fixed(sim_data_int(beta_cond = x[1], n.obs = x[2]), model, REML = FALSE))))
+data_TasZ.ML <- t(apply(grid, 1, function(x) future_replicate(nsim, test_TasZ.fixed(sim_data_int(beta_cond = x[1], n.obs = x[2]), model, REML = FALSE))))
 data_TasZ.ML_long <- as.data.frame(cbind(grid, data_TasZ.ML))
 data_TasZ.ML_long <- gather(data_TasZ.ML_long, sim, p.TasZ.ML, 3:ncol(data_TasZ.ML_long))
 
@@ -172,7 +171,7 @@ p_TasZ.ML <- data_TasZ.ML_long %>%
 ##Sattherthwaire, REML
 ddf <- "Satterthwaite"
 REML <- TRUE
-data_SW.REML <- t(apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data_int(beta_cond = x[1], n.obs = x[2]), model, REML = REML, ddf = ddf))))
+data_SW.REML <- t(apply(grid, 1, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_cond = x[1], n.obs = x[2]), model, REML = REML, ddf = ddf))))
 data_SW.REML_long <- as.data.frame(cbind(grid, data_SW.REML))
 data_SW.REML_long <- gather(data_SW.REML_long, sim, p.SW.REML, 3:ncol(data_SW.REML_long))
 
@@ -190,7 +189,7 @@ p_SW.REML <- data_SW.REML_long %>%
 ##Kenward-Roger, REML
 ddf <- "Kenward-Roger"
 REML <- TRUE
-data_KR.REML <- t(apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data_int(beta_cond = x[1], n.obs = x[2]), model, REML = TRUE, ddf = "Satterthwaite"))))
+data_KR.REML <- t(apply(grid, 1, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_cond = x[1], n.obs = x[2]), model, REML = TRUE, ddf = "Satterthwaite"))))
 data_KR.REML_long <- as.data.frame(cbind(grid, data_KR.REML))
 data_KR.REML_long <- gather(data_KR.REML_long, sim, p.KR.REML, 3:ncol(data_KR.REML_long))
 
@@ -208,7 +207,7 @@ p_KR.REML <- data_KR.REML_long %>%
 ##Sattherthwaire, ML
 ddf <- "Satterthwaite"
 REML <- FALSE
-data_SW.ML <- t(apply(grid, 1, function(x) replicate(nsim, test_approx.fixed(sim_data_int(beta_cond = x[1], n.obs = x[2]), model, REML = TRUE, ddf = "Satterthwaite"))))
+data_SW.ML <- t(apply(grid, 1, function(x) future_replicate(nsim, test_approx.fixed(sim_data_int(beta_cond = x[1], n.obs = x[2]), model, REML = TRUE, ddf = "Satterthwaite"))))
 data_SW.ML_long <- as.data.frame(cbind(grid, data_SW.ML))
 data_SW.ML_long <- gather(data_SW.ML_long, sim, p.SW.ML, 3:ncol(data_SW.ML_long))
 
